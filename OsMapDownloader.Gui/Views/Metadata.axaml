@@ -1,0 +1,103 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="290"
+             x:Class="OsMapDownloader.Gui.Views.Metadata">
+	<StackPanel Orientation="Vertical" Spacing="10">
+		<StackPanel.Styles>
+			<Style Selector="TextBlock.TextBoxLabel, CheckBox">
+				<Setter	Property="Margin" Value="10,0,10,0"></Setter>
+			</Style>
+			<Style Selector="TextBlock.TextBoxLabel">
+				<Setter	Property="VerticalAlignment" Value="Center"></Setter>
+				<Setter	Property="MinWidth" Value="70"></Setter>
+				<Setter	Property="DockPanel.Dock" Value="Left"></Setter>
+				<Setter Property="TextAlignment" Value="Right"></Setter>
+			</Style>
+		</StackPanel.Styles>
+		<DockPanel>
+			<TextBlock Classes="TextBoxLabel">Name:</TextBlock>
+			<TextBox Text="{Binding Name}"></TextBox>
+		</DockPanel>
+		<DockPanel>
+			<TextBlock Classes="TextBoxLabel">Long title:</TextBlock>
+			<TextBox Text="{Binding LongTitle}"></TextBox>
+		</DockPanel>
+		<Grid>
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+			</Grid.ColumnDefinitions>
+			<DockPanel Grid.Column="0">
+				<TextBlock Classes="TextBoxLabel">Identifier:</TextBlock>
+				<TextBox Text="{Binding Identifier}"></TextBox>
+			</DockPanel>
+			<DockPanel Grid.Column="1">
+				<TextBlock Classes="TextBoxLabel">Edition:</TextBlock>
+				<TextBox Text="{Binding Edition}"></TextBox>
+			</DockPanel>
+			<DockPanel Grid.Column="2">
+				<TextBlock Classes="TextBoxLabel">Revision:</TextBlock>
+				<TextBox Text="{Binding Revision}"></TextBox>
+			</DockPanel>
+		</Grid>
+		<DockPanel>
+			<TextBlock Classes="TextBoxLabel">Keywords:</TextBlock>
+			<TextBox Text="{Binding Keywords}"></TextBox>
+		</DockPanel>
+		<Grid>
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+			</Grid.ColumnDefinitions>
+			<DockPanel Grid.Column="0">
+				<TextBlock Classes="TextBoxLabel">Scale:</TextBlock>
+				<TextBox Text="{Binding Scale}"></TextBox>
+			</DockPanel>
+			<DockPanel Grid.Column="1">
+				<TextBlock Classes="TextBoxLabel">Datum:</TextBlock>
+				<TextBox Text="{Binding Datum}"></TextBox>
+			</DockPanel>
+			<DockPanel Grid.Column="2">
+				<TextBlock Classes="TextBoxLabel">Depths:</TextBlock>
+				<TextBox Text="{Binding Depths}"></TextBox>
+			</DockPanel>
+			<DockPanel Grid.Column="3">
+				<TextBlock Classes="TextBoxLabel">Heights:</TextBlock>
+				<TextBox Text="{Binding Heights}"></TextBox>
+			</DockPanel>
+		</Grid>
+		<Grid>
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+			</Grid.ColumnDefinitions>
+			<DockPanel Grid.Column="0">
+				<TextBlock Classes="TextBoxLabel">Projection:</TextBlock>
+				<TextBox Text="{Binding Projection}"></TextBox>
+			</DockPanel>
+			<DockPanel Grid.Column="1">
+				<TextBlock Classes="TextBoxLabel">Type:</TextBlock>
+				<TextBox Text="{Binding Type}"></TextBox>
+			</DockPanel>
+			<DockPanel Grid.Column="2" Grid.ColumnSpan="2">
+				<TextBlock Classes="TextBoxLabel">Copyright:</TextBlock>
+				<TextBox Text="{Binding Copyright}"></TextBox>
+			</DockPanel>
+		</Grid>
+		<Grid>
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+				<ColumnDefinition Width="*"></ColumnDefinition>
+			</Grid.ColumnDefinitions>
+			<CheckBox Grid.Column="0" IsChecked="{Binding MustHaveOriginalFile}">Must have original file</CheckBox>
+			<CheckBox Grid.Column="1" IsChecked="{Binding AllowCalibration}">Allow calibration</CheckBox>
+		</Grid>
+	</StackPanel>
+</UserControl>

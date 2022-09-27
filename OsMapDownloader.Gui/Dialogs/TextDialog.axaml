@@ -1,0 +1,42 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="160"
+        x:Class="OsMapDownloader.Gui.Dialogs.TextDialog"
+		Icon="/Assets/icon.ico" ShowInTaskbar="False"
+		CanResize="False" Width="400" Height="160"
+		Padding="20"
+		WindowStartupLocation="CenterOwner">
+	<Grid>
+		<Grid.RowDefinitions>
+			<RowDefinition Height="*"></RowDefinition>
+			<RowDefinition Height="Auto"></RowDefinition>
+			<RowDefinition Height="Auto"></RowDefinition>
+		</Grid.RowDefinitions>
+		<TextBlock Grid.Row="0"
+				   VerticalAlignment="Bottom"
+				   TextWrapping="Wrap"
+				   Text="{Binding Prompt}"></TextBlock>
+		<TextBox Name="InputTextBox"
+				 Grid.Row="1"
+				 Margin="0,5,0,0"
+				 AcceptsReturn="False" TextWrapping="NoWrap"
+				 VerticalAlignment="Top"
+				 Text="{Binding Response}"></TextBox>
+		<StackPanel Grid.Row="2"
+					VerticalAlignment="Bottom"
+					HorizontalAlignment="Right"
+					Orientation="Horizontal"
+					Spacing="10" Margin="0,20,0,0">
+			<StackPanel.Styles>
+				<Style Selector="Button">
+					<Setter Property="Width" Value="75"></Setter>
+					<Setter Property="HorizontalContentAlignment" Value="Center"></Setter>
+				</Style>
+			</StackPanel.Styles>
+			<Button IsDefault="True" IsEnabled="{Binding OkButtonEnabled}" Command="{Binding OkButtonPressed}">OK</Button>
+			<Button IsCancel="True" Command="{Binding CancelButtonPressed}">Cancel</Button>
+		</StackPanel>
+	</Grid>
+</Window>

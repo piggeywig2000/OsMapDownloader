@@ -1,0 +1,75 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+		xmlns:views="clr-namespace:OsMapDownloader.Gui.Views"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="OsMapDownloader.Gui.MainWindow"
+        Title="OS Map Downloader" Icon="/Assets/icon.ico"
+		MinWidth="800" MinHeight="400"
+		WindowState="Maximized">
+	<DockPanel>
+		<Border DockPanel.Dock="Top"
+				BorderBrush="DarkGray"
+				BorderThickness="0,0,0,1">
+			<Menu>
+				<Menu.Resources>
+					<CornerRadius x:Key="OverlayCornerRadius">0</CornerRadius>
+					<Color x:Key="MenuFlyoutPresenterBorderBrush">DarkGray</Color>
+				</Menu.Resources>
+				<Menu.Styles>
+					<Style Selector="MenuItem /template/ Popup">
+						<Setter Property="HorizontalOffset" Value="-1"></Setter>
+						<Setter Property="VerticalOffset" Value="-2"></Setter>
+					</Style>
+					<Style Selector="MenuItem:open /template/ Border#PART_LayoutRoot">
+						<Setter Property="BorderBrush" Value="DarkGray"></Setter>
+						<Setter Property="BorderThickness" Value="1"></Setter>
+					</Style>
+					<Style Selector="MenuItem:not(:open) /template/ Border#PART_LayoutRoot">
+						<Setter Property="BorderBrush" Value="Transparent"></Setter>
+						<Setter Property="BorderThickness" Value="1"></Setter>
+					</Style>
+				</Menu.Styles>
+				<MenuItem Header="_Area">
+					<MenuItem Header="_New" HotKey="Ctrl+N" InputGesture="Ctrl+N"
+							  Command="{Binding NewArea}"></MenuItem>
+					<MenuItem Header="D_uplicate" HotKey="Ctrl+D" InputGesture="Ctrl+D"
+							  Command="{Binding DuplicateArea}" IsEnabled="{Binding IsAreaSelected}"></MenuItem>
+					<MenuItem Header="_Rename" HotKey="Ctrl+R" InputGesture="Ctrl+R"
+							  Command="{Binding RenameArea}" IsEnabled="{Binding IsAreaSelected}"></MenuItem>
+					<MenuItem Header="_Delete" HotKey="Delete" InputGesture="Delete"
+							  Command="{Binding DeleteArea}" IsEnabled="{Binding IsAreaSelected}"></MenuItem>
+				</MenuItem>
+				<MenuItem Header="_QCT">
+					<MenuItem Header="_Import area from .QCT" HotKey="Ctrl+I" InputGesture="Ctrl+I"
+							  Command="{Binding ImportArea}"></MenuItem>
+					<MenuItem Header="_Export area to .QCT" HotKey="Ctrl+E" InputGesture="Ctrl+E"
+							  Command="{Binding ExportArea}" IsEnabled="{Binding IsAreaPopulated}"></MenuItem>
+				</MenuItem>
+				<MenuItem Header="_Menu">
+					<MenuItem Header="_Settings" Command="{Binding OpenSettings}"></MenuItem>
+					<MenuItem Header="_About" Command="{Binding OpenAbout}"></MenuItem>
+				</MenuItem>
+			</Menu>
+		</Border>
+		<Grid>
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="250" MinWidth="250"></ColumnDefinition>
+				<ColumnDefinition Width="10"></ColumnDefinition>
+				<ColumnDefinition Width="*" MinWidth="400"></ColumnDefinition>
+			</Grid.ColumnDefinitions>
+			<Border Grid.Column="0"
+					BorderBrush="DarkGray"
+					BorderThickness="0,0,1,0">
+				<views:AreaListView></views:AreaListView>
+			</Border>
+			<GridSplitter Grid.Column="1" ResizeDirection="Columns" Background="White"></GridSplitter>
+			<Border Grid.Column="2"
+					BorderBrush="DarkGray"
+					BorderThickness="1,0,0,0">
+				<views:MapView></views:MapView>
+			</Border>
+		</Grid>
+	</DockPanel>
+</Window>

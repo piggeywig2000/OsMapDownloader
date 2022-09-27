@@ -1,0 +1,93 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+			 xmlns:paz="using:Avalonia.Controls.PanAndZoom"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="800"
+             x:Class="OsMapDownloader.Gui.Views.MapView">
+	<DockPanel>
+		<ScrollViewer Name="MapScrollViewer" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Hidden">
+			<ScrollViewer.RenderTransform>
+				<RotateTransform Angle="0"></RotateTransform>
+			</ScrollViewer.RenderTransform>
+			<paz:ZoomBorder Name="ZoomBorder"
+							Cursor="{Binding ZoomBorderCursor}"
+							PanButton="Left"
+							Stretch="None"
+							EnableZoom="False"
+							EnableGestureZoom="False"
+							EnableGestureRotation="False"
+							PowerFactor="1"
+							ZoomSpeed="2">
+				<Canvas Name="TileContainer"
+						Background="LightGray"
+						Width="256000000"
+						Height="256000000"
+						HorizontalAlignment="Left"
+						VerticalAlignment="Top">
+				</Canvas>
+			</paz:ZoomBorder>
+		</ScrollViewer>
+		<Border DockPanel.Dock="Right"
+				BorderBrush="DarkGray"
+				BorderThickness="1,0,0,0"
+				Background="White"
+				Width="91"
+				Padding="2.5"
+				HorizontalAlignment="Right">
+			<StackPanel Orientation="Vertical" Name="MapButtonContainer">
+				<StackPanel.Styles>
+					<Style Selector="#MapButtonContainer > Button, #MapButtonContainer > ToggleButton, #MapButtonContainer > Separator, #MapButtonContainer > TextBlock">
+						<Setter Property="HorizontalAlignment" Value="Stretch"></Setter>
+						<Setter Property="Margin" Value="2.5"></Setter>
+					</Style>
+					<Style Selector="#MapButtonContainer > Button, #MapButtonContainer > ToggleButton">
+						<Setter Property="Height" Value="40"></Setter>
+						<Setter Property="HorizontalContentAlignment" Value="Center"></Setter>
+						<Setter Property="VerticalContentAlignment" Value="Center"></Setter>
+						<Setter Property="Padding" Value="0"></Setter>
+					</Style>
+					<Style Selector="#MapButtonContainer > ToggleButton:checked /template/ ContentPresenter">
+						<Setter Property="Background" Value="#99c9ef"></Setter>
+					</Style>
+					<Style Selector="#MapButtonContainer > Separator">
+						<Setter Property="Background" Value="DarkGray"></Setter>
+						<Setter Property="Height" Value="1"></Setter>
+					</Style>
+					<Style Selector="#MapButtonContainer > TextBlock">
+						<Setter Property="TextWrapping" Value="Wrap"></Setter>
+						<Setter Property="TextAlignment" Value="Center"></Setter>
+					</Style>
+				</StackPanel.Styles>
+				<Button FontWeight="Black" FontSize="24"
+						Command="{Binding Map.ZoomIn}"
+						IsEnabled="{Binding ZoomInEnabled}"
+						ToolTip.Tip="Zoom In" HotKey="+">+</Button>
+				<Button FontWeight="Black" FontSize="24"
+						Command="{Binding Map.ZoomOut}"
+						IsEnabled="{Binding ZoomOutEnabled}"
+						ToolTip.Tip="Zoom Out" HotKey="-">-</Button>
+				<Separator></Separator>
+				<TextBlock FontSize="12">Scale Lock:</TextBlock>
+				<Button Content="{Binding ScaleButtonContent}"
+						Command="{Binding ToggleScaleLock}"
+						ToolTip.Tip="Change Scale Lock"></Button>
+				<Separator></Separator>
+				<ToggleButton IsChecked="{Binding SnapToPoints}"
+						ToolTip.Tip="Snap To Other Points">
+					<Panel>
+						<Image Source="/Assets/snap_to_points_on.png" IsVisible="{Binding SnapToPoints}"></Image>
+						<Image Source="/Assets/snap_to_points_off.png" IsVisible="{Binding !SnapToPoints}"></Image>
+					</Panel>
+				</ToggleButton>
+				<ToggleButton IsChecked="{Binding SnapToGrid}"
+						ToolTip.Tip="Snap To Grid Lines">
+					<Panel>
+						<Image Source="/Assets/snap_to_grid_on.png" IsVisible="{Binding SnapToGrid}"></Image>
+						<Image Source="/Assets/snap_to_grid_off.png" IsVisible="{Binding !SnapToGrid}"></Image>
+					</Panel>
+				</ToggleButton>
+			</StackPanel>
+		</Border>
+	</DockPanel>
+</UserControl>

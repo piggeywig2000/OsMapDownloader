@@ -1,0 +1,39 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="OsMapDownloader.Gui.App">
+    <Application.Styles>
+        <FluentTheme Mode="Light"/>
+		<Style Selector="Button:not(:disabled), ToggleButton:not(:disabled), MenuItem:not(:disabled), ListBoxItem:not(:disabled), CheckBox:not(:disabled)">
+			<Setter Property="Cursor" Value="Hand"></Setter>
+		</Style>
+		<Style Selector="MenuItem /template/ Popup">
+			<Setter Property="Cursor" Value="Arrow"></Setter>
+		</Style>
+		<Style Selector="HeaderedContentControl">
+			<Setter Property="Template">
+				<Setter.Value>
+					<ControlTemplate>
+						<Grid>
+							<Grid.RowDefinitions>
+								<RowDefinition Height="Auto"/>
+								<RowDefinition Height="*"/>
+							</Grid.RowDefinitions>
+							<Grid.ColumnDefinitions>
+								<ColumnDefinition Width="Auto"/>
+								<ColumnDefinition Width="*"/>
+							</Grid.ColumnDefinitions>
+							<Border ZIndex="1" Padding="5,0,5,0" Background="White" Margin="5,0,0,0">
+								<TextBlock TextBlock.FontWeight="Bold" Text="{TemplateBinding Header}" />
+							</Border>
+							<Border Grid.RowSpan="2" Grid.ColumnSpan="2" Margin="0,10,0,0"
+								BorderBrush="{TemplateBinding Background}"
+								BorderThickness="1">
+								<ContentPresenter Content="{TemplateBinding Content}" Padding="{TemplateBinding Padding}" />
+							</Border>
+						</Grid>
+					</ControlTemplate>
+				</Setter.Value>
+			</Setter>
+		</Style>
+    </Application.Styles>
+</Application>

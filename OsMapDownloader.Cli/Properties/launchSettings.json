@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "WSL": {
+      "commandName": "WSL2",
+      "environmentVariables": {},
+      "distributionName": ""
+    },
+    "OsMapDownloader.Cli": {
+      "commandName": "Project",
+      "commandLineArgs": "box 51.39194444 -2.34361111 51.36861111 -2.30833333 out.qct --scale 1:25k -o --name=\"ur mom\""
+    }
+  }
+}

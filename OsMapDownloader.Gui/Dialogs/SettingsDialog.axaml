@@ -1,0 +1,77 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="400"
+        x:Class="OsMapDownloader.Gui.Dialogs.SettingsDialog"
+        Title="Settings" Icon="/Assets/icon.ico" ShowInTaskbar="False"
+	    CanResize="True" Width="800" MinWidth="600" Height="500" MinHeight="400"
+		WindowStartupLocation="CenterOwner">
+	<Grid>
+		<Grid.RowDefinitions>
+			<RowDefinition Height="*"></RowDefinition>
+			<RowDefinition Height="Auto"></RowDefinition>
+		</Grid.RowDefinitions>
+		<ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+					  Padding="20,0,20,0">
+			<Grid VerticalAlignment="Top" Margin="0,20,0,214">
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="*"></ColumnDefinition>
+					<ColumnDefinition Width="10"></ColumnDefinition>
+					<ColumnDefinition Width="*"></ColumnDefinition>
+				</Grid.ColumnDefinitions>
+				<Grid.RowDefinitions>
+					<RowDefinition></RowDefinition>
+					<RowDefinition Height="10"></RowDefinition>
+					<RowDefinition></RowDefinition>
+					<RowDefinition Height="10"></RowDefinition>
+					<RowDefinition></RowDefinition>
+					<RowDefinition Height="10"></RowDefinition>
+					<RowDefinition></RowDefinition>
+					<RowDefinition Height="10"></RowDefinition>
+					<RowDefinition></RowDefinition>
+				</Grid.RowDefinitions>
+				<Grid.Styles>
+					<Style Selector="TextBlock.Label">
+						<Setter	Property="Grid.Column" Value="0"></Setter>
+						<Setter	Property="VerticalAlignment" Value="Center"></Setter>
+						<Setter	Property="TextWrapping" Value="WrapWithOverflow"></Setter>
+					</Style>
+					<Style Selector="CheckBox">
+						<Setter	Property="Grid.Column" Value="0"></Setter>
+						<Setter Property="Grid.ColumnSpan" Value="3"></Setter>
+					</Style>
+				</Grid.Styles>
+				<TextBlock Grid.Row="0" Classes="Label">Polynomial Coefficients Sample Size</TextBlock>
+				<NumericUpDown Grid.Column="2" Grid.Row="0" Name="PolynomialSampleSizeElement"
+							   Value="{Binding PolynomialSampleSize}"
+							   Minimum="0" ShowButtonSpinner="False" AllowSpin="False"></NumericUpDown>
+				<TextBlock Grid.Row="2" Classes="Label">Download Token</TextBlock>
+				<TextBox Grid.Column="2" Grid.Row="2" Name="TokenElement"
+						 Text="{Binding Token}"></TextBox>
+				<CheckBox Grid.Row="4" Name="UseHardwareAccelerationElement"
+						  IsChecked="{Binding UseHardwareAcceleration}">Use Hardware Acceleration</CheckBox>
+				<CheckBox Grid.Row="6" Name="KeepTilesElement"
+						  IsChecked="{Binding KeepTiles}">Keep Downloaded Tiles</CheckBox>
+				<Button Grid.Column="0" Grid.Row="8" Grid.ColumnSpan="3"
+						HorizontalAlignment="Center"
+						Command="{Binding ResetToDefault}">Reset Settings To Default</Button>
+			</Grid>
+		</ScrollViewer>
+		<Border Grid.Row="1" Name="DetailsContainer"
+				Background="#e6e6e6" BorderThickness="0,1,0,0" BorderBrush="DarkGray" Padding="20"
+				IsVisible="{Binding IsDetailsShowing}">
+			<StackPanel Spacing="16">
+				<StackPanel.Styles>
+					<Style Selector="TextBlock">
+						<Setter Property="TextTrimming" Value="None"></Setter>
+						<Setter Property="TextWrapping" Value="WrapWithOverflow"></Setter>
+					</Style>
+				</StackPanel.Styles>
+				<TextBlock FontWeight="Bold"
+						   Text="{Binding DetailsTitle}"></TextBlock>
+				<TextBlock Text="{Binding DetailsDescription}"></TextBlock>
+			</StackPanel>
+		</Border>
+	</Grid>
+</Window>
