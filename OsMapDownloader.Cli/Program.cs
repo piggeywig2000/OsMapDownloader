@@ -36,13 +36,17 @@ namespace OsMapDownloader
 box <TopLeftLatitude> <TopLeftLongitude> <BottomRightLatitude> <BottomRightLongitude> <FilePath> [options...]
 points <BorderPointsPath> <FilePath> [options...]");
                 h.AddPostOptionsText(@"EXAMPLES:
-53.985008 -1.161702 53.981299 -1.140141" + " \"area.qct\" -o --name=\"York\" --edition=\"2015\"" + @"
+box 53.985008 -1.161702 53.981299 -1.140141" + " \"area.qct\" -o --name=\"York\" --edition=\"2015\"" + @"
 Download the city of York, saving the file with name area.qct in the current folder. Overwrite the file if it already exists.
-Metadata tags: Name is York, Edition is 2015
+Metadata tags: Name is York, Edition is 2015.
 
-53.125098 -4.136918 53.114719 -4.110482" + " \"maps/holiday.qct\" -quiet --name=\"Summer Holiday 2020\" --long-name=\"Summer Holiday 2020 destination\" --revision=\"1\"" + @"
+box 53.125098 -4.136918 53.114719 -4.110482" + " \"maps/holiday.qct\" -quiet --name=\"Summer Holiday 2020\" --long-name=\"Summer Holiday 2020 destination\" --revision=\"1\"" + @"
 Download the village of Llanberis, saving the file with name holiday.qct in a folder called maps in the current folder. Only output error messages.
-Metadata tags: Name is Summer Holiday 2020, Long Name is Summer Holiday 2020 destination, Revision is 1");
+Metadata tags: Name is Summer Holiday 2020, Long Name is Summer Holiday 2020 destination, Revision is 1.
+
+points" + " \"border.txt\" \"map.qct\" --scale=\"1:50000\" --name=\"Complex Map\"" + @"
+Download a map with a border defined by latitude-longitude pairs found in border.txt, connected together.
+The map is at 1:50000 scale (instead of the default 1:25000).");
                 return h;
             }));
             return 1;
