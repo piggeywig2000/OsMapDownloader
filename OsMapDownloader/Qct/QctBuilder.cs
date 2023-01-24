@@ -49,10 +49,10 @@ namespace OsMapDownloader.Qct
                 Log.Warning("This map size could cause an error due to it being too large");
 
             //Fill the tiles array with the tile objects containing their position, and calculate map area
-            Tile[] tiles = await PrepareObjects(map, progress, tilesWidth, tilesHeight, metersPerTile, cancellationToken);
+            Tile[] tiles = await PrepareObjects(map, progress.CurrentProgress!, tilesWidth, tilesHeight, metersPerTile, cancellationToken);
 
             //Calculate geographical referencing polynomials
-            GeographicalReferencingCoefficients coefficients = await CalculateGeographicalReferencingPolynomials(map, progress, polynomialSampleSize, pixelsPerMeter, cancellationToken);
+            GeographicalReferencingCoefficients coefficients = await CalculateGeographicalReferencingPolynomials(map, progress.CurrentProgress!, polynomialSampleSize, pixelsPerMeter, cancellationToken);
 
             try
             {
@@ -67,7 +67,7 @@ namespace OsMapDownloader.Qct
             try
             {
                 //Download the images for the tiles
-                Color[] palette = await DownloadRequiredImagesAndGetPalette(map, progress, tiles, token, cancellationToken);
+                Color[] palette = await DownloadRequiredImagesAndGetPalette(map, progress.CurrentProgress!, tiles, token, cancellationToken);
                 byte[] interpolationMatrix = GenerateInterpolationMatrix(map, palette);
 
                 //Write the QCT file while processing the tiles
@@ -95,7 +95,7 @@ namespace OsMapDownloader.Qct
         /// <summary>
         /// Fill the tiles array with tile objects containing the position of each tile
         /// </summary>
-        private static async Task<Tile[]> PrepareObjects(Map map, ProgressTracker progress, uint tilesWidth, uint tilesHeight, double metersPerTile, CancellationToken cancellationToken)
+        private static async Task<Tile[]> PrepareObjects(Map map, IProgress<double> progress, uint tilesWidth, uint tilesHeight, double metersPerTile, CancellationToken cancellationToken)
         {
             Log.Debug("Calculating triangles for map area");
             try
@@ -107,7 +107,7 @@ namespace OsMapDownloader.Qct
                 throw new MapGenerationException(MapGenerationExceptionReason.BorderNonSimple, e);
             }
             cancellationToken.ThrowIfCancellationRequested();
-            progress.CurrentProgress!.Report(1);
+            progress.Report(1);
 
             Log.Debug("Populate Tiles Array");
             uint totalTiles = tilesWidth * tilesHeight;
@@ -130,16 +130,16 @@ namespace OsMapDownloader.Qct
                 }
             });
 
-            progress.CurrentProgress!.Report(2);
+            progress.Report(2);
             return tiles;
         }
 
-        private static async Task<GeographicalReferencingCoefficients> CalculateGeographicalReferencingPolynomials(Map map, ProgressTracker progress, int polynomialSampleSize, double pixelsPerMeter, CancellationToken cancellationToken = default(CancellationToken))
+        private static async Task<GeographicalReferencingCoefficients> CalculateGeographicalReferencingPolynomials(Map map, IProgress<double> progress, int polynomialSampleSize, double pixelsPerMeter, CancellationToken cancellationToken = default(CancellationToken))
         {
             GeographicalReferencingCoefficients coefficients;
             try
             {
-                coefficients = await Task.Run(() => PolynomialCalculator.Calculate(progress.CurrentProgress!, map.TopLeft, map.BottomRight, polynomialSampleSize, pixelsPerMeter, cancellationToken));
+                coefficients = await Task.Run(() => PolynomialCalculator.Calculate(progress, map.TopLeft, map.BottomRight, polynomialSampleSize, pixelsPerMeter, cancellationToken));
                 cancellationToken.ThrowIfCancellationRequested();
             }
             catch (OutOfMemoryException e)
@@ -153,11 +153,11 @@ namespace OsMapDownloader.Qct
         /// <summary>
         /// Download the required images for each tile
         /// </summary>
-        private static async Task<Color[]> DownloadRequiredImagesAndGetPalette(Map map, ProgressTracker progress, Tile[] tiles, string? token, CancellationToken cancellationToken = default(CancellationToken))
+        private static async Task<Color[]> DownloadRequiredImagesAndGetPalette(Map map, IProgress<double> progress, Tile[] tiles, string? token, CancellationToken cancellationToken = default(CancellationToken))
         {
             Log.Debug("Download Required Images");
 
-            TileDownloader downloader = new TileDownloader(progress.CurrentProgress!, tiles, map.Area, map.Scale);
+            TileDownloader downloader = new TileDownloader(progress, tiles, map.Area, map.Scale);
 
             try
             {
