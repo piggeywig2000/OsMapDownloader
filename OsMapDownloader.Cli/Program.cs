@@ -139,9 +139,10 @@ The map is at 1:50000 scale (instead of the default 1:25000).");
                     DatumShiftNorth = 0.0,
                     DatumShiftEast = 0.0
                 });
-                map.Progress.ProgressChanged += (s, e) => LogProgressChange(map);
-                LogProgressChange(map);
-                await map.GenerateQCTFileFromMap(options.DestinationPath, options.Overwrite, options.PolynomialSampleSize, options.Token, options.KeepTiles, options.DisableHardwareAccel);
+                ProgressTracker progress = QctBuilder.CreateProgress();
+                progress.ProgressChanged += (s, e) => LogProgressChange(progress);
+                LogProgressChange(progress);
+                await QctBuilder.Build(map, progress, options.DestinationPath, options.Overwrite, options.PolynomialSampleSize, options.Token, options.KeepTiles, options.DisableHardwareAccel);
             }
             catch (MapGenerationException e)
             {
@@ -165,15 +166,15 @@ The map is at 1:50000 scale (instead of the default 1:25000).");
             return 0;
         }
 
-        private static void LogProgressChange(Map map)
+        private static void LogProgressChange(ProgressTracker progress)
         {
-            if (map.Progress.IsCompleted)
+            if (progress.IsCompleted)
             {
                 Log.Information("Done");
             }
             else
             {
-                Log.Information("{name}: {percentage}%\n{status}", map.Progress.CurrentProgressItem!.Name, (map.Progress.CurrentProgressItem!.Value * 100).ToString("0.0000"), map.Progress.CurrentProgressItem!.Status);
+                Log.Information("{name}: {percentage}%\n{status}", progress.CurrentProgressItem!.Name, (progress.CurrentProgressItem!.Value * 100).ToString("0.0000"), progress.CurrentProgressItem!.Status);
             }
         }
     }

@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using OsMapDownloader.Coords;
 
-namespace OsMapDownloader.WebDownloader
+namespace OsMapDownloader.Qct.WebDownloader
 {
     public class WebTile
     {
@@ -109,7 +109,7 @@ namespace OsMapDownloader.WebDownloader
             return data;
         }
 
-        public static async Task<string> GetToken(HttpClient client, CancellationToken cancellationToken = default(CancellationToken))
+        public static async Task<string> GetToken(HttpClient client, CancellationToken cancellationToken = default)
         {
             string html = await client.GetStringAsync("https://explore.osmaps.com/", cancellationToken);
             const string START_TAG = "<script id=\"__NEXT_DATA__\" type=\"application/json\">";

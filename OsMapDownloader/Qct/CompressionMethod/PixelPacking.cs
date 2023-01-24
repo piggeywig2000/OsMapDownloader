@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace OsMapDownloader.CompressionMethod
+namespace OsMapDownloader.Qct.CompressionMethod
 {
     public class PixelPacking : CompressionMethod
     {
@@ -29,7 +29,7 @@ namespace OsMapDownloader.CompressionMethod
                 //Repeat until there isn't enough space left for another pixel or until there's no pixels remaining
                 while (bitsRemaining - requiredColourBits >= 0 && currentSourceIndex < source.Length)
                 {
-                    int pixelValueToAdd = Array.FindIndex(subpalette, x => (x == source[currentSourceIndex]));
+                    int pixelValueToAdd = Array.FindIndex(subpalette, x => x == source[currentSourceIndex]);
 
                     //Create a new BitArray to represent the colour
                     BitArray thisPixel = new BitArray(new int[] { pixelValueToAdd });

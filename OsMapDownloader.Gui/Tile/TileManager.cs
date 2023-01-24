@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using OsMapDownloader.Coords;
-using OsMapDownloader.WebDownloader;
+using OsMapDownloader.Qct.WebDownloader;
 
 namespace OsMapDownloader.Gui.Tile
 {

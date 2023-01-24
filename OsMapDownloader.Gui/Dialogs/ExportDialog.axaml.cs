@@ -12,6 +12,7 @@ using OsMapDownloader.Gui.Config;
 using OsMapDownloader.Gui.VIewModels;
 using OsMapDownloader.Gui.Views;
 using OsMapDownloader.Progress;
+using OsMapDownloader.Qct;
 using Serilog;
 
 namespace OsMapDownloader.Gui.Dialogs
@@ -249,9 +250,10 @@ namespace OsMapDownloader.Gui.Dialogs
             try
             {
                 Map map = new Map(areaToExport.Points.ToArray(), Scale, metadata.UnderlyingMetadata);
-                map.Progress.ProgressChanged += (s, e) => UpdateProgress(map.Progress);
-                UpdateProgress(map.Progress);
-                await map.GenerateQCTFileFromMap(FileLocation, true, settings.PolynomialSampleSize, settings.Token, settings.KeepTiles, !settings.UseHardwareAcceleration, exportCancelSource.Token);
+                ProgressTracker progress = QctBuilder.CreateProgress();
+                progress.ProgressChanged += (s, e) => UpdateProgress(progress);
+                UpdateProgress(progress);
+                await QctBuilder.Build(map, progress, FileLocation, true, settings.PolynomialSampleSize, settings.Token, settings.KeepTiles, !settings.UseHardwareAcceleration, exportCancelSource.Token);
             }
             catch (Exception e)
             {

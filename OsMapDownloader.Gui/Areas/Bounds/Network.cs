@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using OsMapDownloader.Coords;
-using OsMapDownloader.WebDownloader;
+using OsMapDownloader.Qct.WebDownloader;
 
 namespace OsMapDownloader.Gui.Areas.Bounds
 {

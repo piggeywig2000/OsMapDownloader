@@ -5,9 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using OsMapDownloader.Border;
-using OsMapDownloader.CompressionMethod;
 using OsMapDownloader.Coords;
-using OsMapDownloader.WebDownloader;
 using Serilog;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
@@ -16,8 +14,10 @@ using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Quantization;
 using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
+using OsMapDownloader.Qct.CompressionMethod;
+using OsMapDownloader.Qct.WebDownloader;
 
-namespace OsMapDownloader
+namespace OsMapDownloader.Qct
 {
     public class Tile
     {
@@ -66,10 +66,10 @@ namespace OsMapDownloader
             WebTile br = new WebTile(LatlongBottomRight + new Wgs84Coordinate(+ERROR_MARGIN, -ERROR_MARGIN), MapScale);
 
             //Get the web tile min and max x and y
-            WebTileMinX = (tl.TopLeft.X < bl.TopLeft.X) ? tl.TopLeft.X : bl.TopLeft.X;
-            WebTileMaxX = (tr.TopLeft.X > br.TopLeft.X) ? tr.TopLeft.X : br.TopLeft.X;
-            WebTileMinY = (tl.TopLeft.Y < tr.TopLeft.Y) ? tl.TopLeft.Y : tr.TopLeft.Y;
-            WebTileMaxY = (bl.TopLeft.Y > br.TopLeft.Y) ? bl.TopLeft.Y : br.TopLeft.Y;
+            WebTileMinX = tl.TopLeft.X < bl.TopLeft.X ? tl.TopLeft.X : bl.TopLeft.X;
+            WebTileMaxX = tr.TopLeft.X > br.TopLeft.X ? tr.TopLeft.X : br.TopLeft.X;
+            WebTileMinY = tl.TopLeft.Y < tr.TopLeft.Y ? tl.TopLeft.Y : tr.TopLeft.Y;
+            WebTileMaxY = bl.TopLeft.Y > br.TopLeft.Y ? bl.TopLeft.Y : br.TopLeft.Y;
         }
 
         public async Task<Image<Rgba32>?[]> LoadImages()
@@ -164,7 +164,7 @@ namespace OsMapDownloader
         /// <returns>The rotation in radians</returns>
         private double GetRotationError(Coordinate topLeftPixels, Coordinate bottomRightPixels)
         {
-            return Math.Atan2(bottomRightPixels.Y - topLeftPixels.Y, bottomRightPixels.X - topLeftPixels.X) - (Math.PI / 4);
+            return Math.Atan2(bottomRightPixels.Y - topLeftPixels.Y, bottomRightPixels.X - topLeftPixels.X) - Math.PI / 4;
         }
 
         /// <summary>
@@ -201,8 +201,8 @@ namespace OsMapDownloader
 
 
             //Get the centre of the tile
-            double tileCentreX = tlTile.X + ((brTile.X - tlTile.X) / 2);
-            double tileCentreY = tlTile.Y + ((brTile.Y - tlTile.Y) / 2);
+            double tileCentreX = tlTile.X + (brTile.X - tlTile.X) / 2;
+            double tileCentreY = tlTile.Y + (brTile.Y - tlTile.Y) / 2;
 
 #if DEBUG_PROCESS
             IPath centrePath = new PathBuilder()
@@ -231,7 +231,7 @@ namespace OsMapDownloader
             //If area right of tile is bigger than area left of tile
             else
             {
-                tlImageAfterX -= (int)((tlImageX + image.Width - brTile.X) - (tlTile.X - tlImageX));
+                tlImageAfterX -= (int)(tlImageX + image.Width - brTile.X - (tlTile.X - tlImageX));
                 image.Mutate(img => img.Resize(new ResizeOptions()
                 {
                     Mode = ResizeMode.BoxPad,
@@ -253,7 +253,7 @@ namespace OsMapDownloader
             //If area below tile is bigger than area above tile
             else
             {
-                tlImageAfterY -= (int)((tlImageY + image.Height - brTile.Y) - (tlTile.Y - tlImageY));
+                tlImageAfterY -= (int)(tlImageY + image.Height - brTile.Y - (tlTile.Y - tlImageY));
                 image.Mutate(img => img.Resize(new ResizeOptions()
                 {
                     Mode = ResizeMode.BoxPad,
@@ -268,12 +268,12 @@ namespace OsMapDownloader
 
             //Rotate image by the error
             double rotationError = GetRotationError(tlTile, brTile) * (180 / Math.PI);
-            image.Mutate(img => img.Rotate((float)(-rotationError)));
+            image.Mutate(img => img.Rotate((float)-rotationError));
 
             //Crop down to the correct location
             Rectangle cropRect = new Rectangle(
-                (int)(((double)image.Width / 2) - (tileWidth / 2)),
-                (int)(((double)image.Height / 2) - (tileHeight / 2)),
+                (int)((double)image.Width / 2 - tileWidth / 2),
+                (int)((double)image.Height / 2 - tileHeight / 2),
                 (int)tileWidth,
                 (int)tileHeight
                 );
@@ -299,7 +299,7 @@ namespace OsMapDownloader
                     Span<Rgba32> rowSpan = processor.GetRowSpan(y);
                     for (int x = 0; x < 64; x++)
                     {
-                        if (!area.IsPointInArea(TopLeft.Easting + (metersWidth * ((x + 0.5) / 64.0)), BottomRight.Northing + (metersHeight * ((63.5 - y) / 64.0))))
+                        if (!area.IsPointInArea(TopLeft.Easting + metersWidth * ((x + 0.5) / 64.0), BottomRight.Northing + metersHeight * ((63.5 - y) / 64.0)))
                         {
                             rowSpan[x] = transparent;
                         }
@@ -347,7 +347,7 @@ namespace OsMapDownloader
             double metersHeight = TopLeft.Northing - BottomRight.Northing;
 
             //Send tile to GPU
-            byte[] processedData = await glManager.ProcessTileAsync(convertedImages, WebTileWidth * 256, WebTileHeight * 256, gpuTilesWidth * 256, gpuTilesHeight * 256, tlTile.X - tlImageX + (tileWidth / 2), tlTile.Y - tlImageY + (tileHeight / 2), tileWidth, tileHeight, -rotationError, (metersWidth / 2) + TopLeft.Easting, (metersHeight / 2) + BottomRight.Northing, metersWidth / 1000, metersHeight / 1000);
+            byte[] processedData = await glManager.ProcessTileAsync(convertedImages, WebTileWidth * 256, WebTileHeight * 256, gpuTilesWidth * 256, gpuTilesHeight * 256, tlTile.X - tlImageX + tileWidth / 2, tlTile.Y - tlImageY + tileHeight / 2, tileWidth, tileHeight, -rotationError, metersWidth / 2 + TopLeft.Easting, metersHeight / 2 + BottomRight.Northing, metersWidth / 1000, metersHeight / 1000);
 
             return processedData;
         }
@@ -426,7 +426,7 @@ namespace OsMapDownloader
             //Shift the result 2 places to the right because we're doing 6 bits not 8
             result >>= 2;
 
-            return (result);
+            return result;
         }
 
         /// <summary>
@@ -445,7 +445,7 @@ namespace OsMapDownloader
                 byte destinationRow = Reverse6Bits(sourceRow);
 
                 //Insert source row bytes into destination row
-                Array.Copy(tile, (int)sourceRow * 64, convertedTile, (int)destinationRow * 64, 64);
+                Array.Copy(tile, sourceRow * 64, convertedTile, destinationRow * 64, 64);
             }
 
             return convertedTile;

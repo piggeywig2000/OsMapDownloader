@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-namespace OsMapDownloader.CompressionMethod
+namespace OsMapDownloader.Qct.CompressionMethod
 {
     public class HuffmanCoding : CompressionMethod
     {
@@ -56,7 +56,7 @@ namespace OsMapDownloader.CompressionMethod
             BitArray tileDataArray = new BitArray(tileData.ToArray());
 
             //Convert to byte array and append to compressed data
-            byte[] packedTileData = new byte[(int)Math.Ceiling((double)tileDataArray.Length / 8.0)];
+            byte[] packedTileData = new byte[(int)Math.Ceiling(tileDataArray.Length / 8.0)];
             tileDataArray.CopyTo(packedTileData, 0);
             compressed.AddRange(packedTileData);
 
@@ -84,7 +84,7 @@ namespace OsMapDownloader.CompressionMethod
                 WriteCodebookRecursive(thisNodeB.FalseChild, compressed);
 
                 //Create a branch in the codebook
-                int requiredJump = (compressed.Count + 1) - branchIndex;
+                int requiredJump = compressed.Count + 1 - branchIndex;
 
                 //Is this a jump we can make with a near instruction?
                 if (requiredJump <= 128)

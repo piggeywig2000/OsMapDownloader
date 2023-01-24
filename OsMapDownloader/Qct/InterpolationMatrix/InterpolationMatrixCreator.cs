@@ -5,7 +5,7 @@ using System.Linq;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-namespace OsMapDownloader.InterpolationMatrix
+namespace OsMapDownloader.Qct.InterpolationMatrix
 {
     public class InterpolationMatrixCreator
     {
@@ -160,7 +160,7 @@ namespace OsMapDownloader.InterpolationMatrix
             {
                 for (byte x = 0; x < _palette.Length; x++)
                 {
-                    matrix[(y * 128) + x] = MergeColours(x, y);
+                    matrix[y * 128 + x] = MergeColours(x, y);
                 }
             }
             return matrix;
@@ -173,8 +173,8 @@ namespace OsMapDownloader.InterpolationMatrix
             double aPrio = GetPriority(aIndex);
             double bPrio = GetPriority(bIndex);
             double prioDiff = (aPrio - bPrio) / (MAX_PRIORITY * 2); //Between -0.5 and 0.5. Positive = a higher, Negative = b higher
-            Rgb24 middle = new Rgb24((byte)(a.R - (0.5 * (a.R - b.R))), (byte)(a.G - (0.5 * (a.G - b.G))), (byte)(a.B - (0.5 * (a.B - b.B))));
-            Rgb24 result = new Rgb24((byte)(middle.R + (prioDiff * (a.R - b.R))), (byte)(middle.G + (prioDiff * (a.G - b.G))), (byte)(middle.B + (prioDiff * (a.B - b.B))));
+            Rgb24 middle = new Rgb24((byte)(a.R - 0.5 * (a.R - b.R)), (byte)(a.G - 0.5 * (a.G - b.G)), (byte)(a.B - 0.5 * (a.B - b.B)));
+            Rgb24 result = new Rgb24((byte)(middle.R + prioDiff * (a.R - b.R)), (byte)(middle.G + prioDiff * (a.G - b.G)), (byte)(middle.B + prioDiff * (a.B - b.B)));
 
             //Now find the closest matching colour in our palette
             double shortestDistance = double.MaxValue;

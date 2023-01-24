@@ -10,7 +10,7 @@ using OsMapDownloader.Progress;
 using Serilog;
 using SixLabors.ImageSharp;
 
-namespace OsMapDownloader.WebDownloader
+namespace OsMapDownloader.Qct.WebDownloader
 {
     public class TileDownloader
     {
@@ -42,7 +42,7 @@ namespace OsMapDownloader.WebDownloader
             public int Y;
         }
 
-        public async Task DownloadTilesAndGeneratePalette(string? token, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task DownloadTilesAndGeneratePalette(string? token, CancellationToken cancellationToken = default)
         {
             HashSet<WebTileCoord> tilesToDownload = new HashSet<WebTileCoord>();
             foreach (Tile tile in _tiles)
@@ -104,7 +104,7 @@ namespace OsMapDownloader.WebDownloader
                     numCompleted++;
 
                     //Analyze tile colours to help make a Palette
-                    if (data != null) 
+                    if (data != null)
                         _paletteCreator.AddImage(data);
 
                     Log.Debug("Downloaded image {completed} / {total}", numCompleted, numTotal);
@@ -118,7 +118,7 @@ namespace OsMapDownloader.WebDownloader
             progress.Report(numTotal);
         }
 
-        private async Task<byte[]?> DownloadTile(WebTile tile, HttpClient client, string token, CancellationToken cancellationToken = default(CancellationToken))
+        private async Task<byte[]?> DownloadTile(WebTile tile, HttpClient client, string token, CancellationToken cancellationToken = default)
         {
             byte[]? data;
 

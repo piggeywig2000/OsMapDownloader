@@ -1,440 +1,181 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Threading;
+using System.Text;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 using OsMapDownloader.Border;
+using OsMapDownloader.Coords;
 using OsMapDownloader.Progress;
+using OsMapDownloader.Qct.InterpolationMatrix;
+using OsMapDownloader.Qct.WebDownloader;
 using Serilog;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing.Processors.Quantization;
 
 namespace OsMapDownloader.Qct
 {
-    public class QctBuilder
+    public static class QctBuilder
     {
-        private readonly ProgressTracker progress;
+        public static ProgressTracker CreateProgress() => new ProgressTracker(
+                (new ProgressPhases("Getting set up", new ProgressPhase("Calculating map area", 1), new ProgressPhase("Creating tiles", 2)), 1),
+                (new ProgressPhases("Calculating geographical referencing polynomial coefficients", new ProgressPhase("Generating sample coordinates", 0.75), new ProgressPhase("Converting sample coordinates", 20), new ProgressPhase("Calculating coefficient 1", 3), new ProgressPhase("Calculating coefficient 2", 3), new ProgressPhase("Calculating coefficient 3", 3), new ProgressPhase("Calculating coefficient 4", 3)), 15),
+                (new ProgressCollection("Downloading images", "image"), 30),
+                (new ProgressCollection("Processing tiles", "tile"), 80),
+                (new ProgressPhases("Finishing up", new ProgressPhase("Writing metadata", 1), new ProgressPhase("Deleting images", 3)), 2));
 
         /// <summary>
-        /// The path that this builder writes to
+        /// Generate a QCT map file from a map
         /// </summary>
-        public string QCTFilePath { get; private set; } = "";
-
-        /// <summary>
-        /// The geographical referencing coefficients
-        /// </summary>
-        public QctGeographicalReferencingCoefficients GeographicalReferencingCoefficients { get; set; }
-
-        /// <summary>
-        /// The colour palette to use. Must be of length 128
-        /// </summary>
-        public Color[] Palette { get; set; }
-
-        /// <summary>
-        /// The interpolation matrix to use. Must be of length 16384
-        /// </summary>
-        public byte[] InterpolationMatrix { get; set; }
-
-        /// <summary>
-        /// Metadata for the QCT file
-        /// </summary>
-        public QctMetadata Metadata { get; set; }
-
-        /// <summary>
-        /// The width (tiles) of this QCT file
-        /// </summary>
-        public uint Width { get; set; }
-
-        /// <summary>
-        /// The height (tiles) of this QCT file
-        /// </summary>
-        public uint Height { get; set; }
-
-
-
-        /// <summary>
-        /// Create a new QCT builder with empty values
-        /// </summary>
-        public QctBuilder(ProgressTracker progress, QctGeographicalReferencingCoefficients geographicalReferencingCoefficients, Color[] palette, byte[] interpolationMatrix, QctMetadata metadata, uint width, uint height)
-        {
-            this.progress = progress;
-            GeographicalReferencingCoefficients = geographicalReferencingCoefficients;
-            Palette = palette;
-            InterpolationMatrix = interpolationMatrix;
-            Metadata = metadata;
-            Width = width;
-            Height = height;
-        }
-
-        /// <summary>
-        /// Begin building asyncronously to the provided path
-        /// </summary>
-        /// <param name="tiles">The tiles to write to the map</param>
-        /// <param name="newQctFilePath">The path to write the new file to</param>
+        /// <param name="map">The map to generate from</param>
+        /// <param name="filePath">The path where the file should be saved</param>
         /// <param name="shouldOverwrite">Whether, if the file already exists, it should be overwritten</param>
-        /// <returns>A Task representing the operation</returns>
-        public async Task Build(Tile[] tiles, MapArea area, string newQctFilePath, bool shouldOverwrite, bool disableHardwareAccel, CancellationToken cancellationToken = default(CancellationToken))
+        /// <param name="polynomialSampleSize">The number of rows and columns in the grid of samples used for calculating the Geographical Referencing Polynomials</param>
+        /// <param name="token">The token to use when downloading. Can be null to fetch one automatically</param>
+        /// <param name="keepDownloadedTiles">Enable to keep instead of deleting the individual tile images</param>
+        /// <param name="disableHardwareAccel">Enable to process tiles on the CPU instead of the GPU</param>
+        public static async Task Build(Map map, ProgressTracker progress, string filePath, bool shouldOverwrite, int polynomialSampleSize, string? token, bool keepDownloadedTiles, bool disableHardwareAccel, CancellationToken cancellationToken = default(CancellationToken))
         {
-            FileStream fs;
+            //The amount of tiles required to make a horizontal/vertical line in the bounding box
+            //1:25000 uses 400px for 1k blue squares. So 1 tile = 64px = 160m
+            //160 / 25000 = 0.0064
+            double metersPerTileScaleMultiplier = 0.0064;
+            double metersPerTile = (uint)map.Scale * metersPerTileScaleMultiplier; //160 at 1:25000
+            double pixelsPerMeter = 64 / metersPerTile; //0.4 at 1:25000
+            uint tilesWidth = (uint)Math.Ceiling((map.BottomRight.Easting - map.TopLeft.Easting) / metersPerTile);
+            uint tilesHeight = (uint)Math.Ceiling((map.TopLeft.Northing - map.BottomRight.Northing) / metersPerTile);
+            uint totalTiles = tilesWidth * tilesHeight;
+
+            //Warn about potential overflow
+            if (totalTiles * 2000 > uint.MaxValue) //Average tile size was found to be around 1751.557701 bytes. Assume 2000, and assume 4 billion to be the uint max
+                Log.Warning("This map size could cause an error due to it being too large");
+
+            //Fill the tiles array with the tile objects containing their position, and calculate map area
+            Tile[] tiles = await PrepareObjects(map, progress, tilesWidth, tilesHeight, metersPerTile, cancellationToken);
+
+            //Calculate geographical referencing polynomials
+            GeographicalReferencingCoefficients coefficients = await CalculateGeographicalReferencingPolynomials(map, progress, polynomialSampleSize, pixelsPerMeter, cancellationToken);
+
             try
             {
-                fs = CreateFile(newQctFilePath, shouldOverwrite);
+                //Create working folder
+                Directory.CreateDirectory("working");
             }
-            catch (Exception e)
+            catch (IOException e)
             {
-                if (e is IOException || e is System.Security.SecurityException || e is ArgumentException || e is NotSupportedException)
+                throw new MapGenerationException(MapGenerationExceptionReason.IOError, e);
+            }
+
+            try
+            {
+                //Download the images for the tiles
+                Color[] palette = await DownloadRequiredImagesAndGetPalette(map, progress, tiles, token, cancellationToken);
+                byte[] interpolationMatrix = GenerateInterpolationMatrix(map, palette);
+
+                //Write the QCT file while processing the tiles
+                Log.Debug("Process Tiles");
+                QctWriter builder = new QctWriter(progress, coefficients, palette, interpolationMatrix, map.Metadata, tilesWidth, tilesHeight);
+                await builder.Build(tiles, map.Area, filePath, shouldOverwrite, disableHardwareAccel, cancellationToken);
+            }
+            finally
+            {
+                try
+                {
+                    //Delete working folder
+                    if (!keepDownloadedTiles)
+                        await Task.Run(() => Directory.Delete("working", true));
+                }
+                catch (IOException e)
                 {
                     throw new MapGenerationException(MapGenerationExceptionReason.IOError, e);
                 }
-                throw;
             }
 
-            //Write null placeholder for the metadata and geographical referencing coordinates
-            fs.Seek(0x01A0, SeekOrigin.Begin);
+            progress.CurrentProgress!.Report(2);
+        }
 
-            await WritePaletteAndInterpolationMatrix(fs, cancellationToken);
-            if (disableHardwareAccel)
+        /// <summary>
+        /// Fill the tiles array with tile objects containing the position of each tile
+        /// </summary>
+        private static async Task<Tile[]> PrepareObjects(Map map, ProgressTracker progress, uint tilesWidth, uint tilesHeight, double metersPerTile, CancellationToken cancellationToken)
+        {
+            Log.Debug("Calculating triangles for map area");
+            try
             {
-                await WriteTiles(fs, tiles, area, null, cancellationToken);
+                await Task.Run(map.Area.CalculateVerticesAndTriangles);
             }
-            else
+            catch (TriangleGenerationException e)
             {
-                //Create in separate thread since OpenGL will do a bit of blocking
-                //If OpenGL messes up it might be because it's not on the main thread, but it hopefully won't since we don't use events
-                Log.Debug("Creating OpenGL processing thread");
-                await Task.Run(() =>
-                {
-                    try
-                    {
-                        Log.Verbose("Creating OpenGL window");
-                        using OpenGLManager glManager = new OpenGLManager();
-                        Log.Verbose("Initialising OpenGL window");
-                        glManager.Init(area);
-
-                        Task writeTilesTask = WriteTiles(fs, tiles, area, glManager, cancellationToken);
-                        glManager.ProcessTilesUntilTaskComplete(writeTilesTask);
-
-                        glManager.Close();
-                    }
-                    catch (Exception e)
-                    {
-                        if (e is OpenTK.Core.Platform.PlatformException || e is OpenTK.Windowing.GraphicsLibraryFramework.GLFWException)
-                        {
-                            throw new MapGenerationException(MapGenerationExceptionReason.OpenGLError, e);
-                        }
-                        throw;
-                    }
-                });
+                throw new MapGenerationException(MapGenerationExceptionReason.BorderNonSimple, e);
             }
-
-            await WriteMetadata(fs, cancellationToken);
-            await WriteGeographicalReferencingPolynomials(fs, cancellationToken);
-            await fs.FlushAsync(cancellationToken);
-            fs.Close();
-            await fs.DisposeAsync();
+            cancellationToken.ThrowIfCancellationRequested();
             progress.CurrentProgress!.Report(1);
-        }
 
-        private FileStream CreateFile(string path, bool overwrite)
-        {
-            if (QCTFilePath != "")
-                throw new InvalidOperationException("There is already a build in progress");
+            Log.Debug("Populate Tiles Array");
+            uint totalTiles = tilesWidth * tilesHeight;
+            Tile[] tiles = new Tile[totalTiles];
 
-            QCTFilePath = path;
+            Log.Debug("This map is {width} tiles wide by {height} tiles high. {total} tiles in total", tilesWidth, tilesHeight, totalTiles);
 
-            //Validate metadata
-            if (Width == 0 || Height == 0)
-                throw new InvalidOperationException("The width and height must both be greater than 0");
-
-            //Create the new file
-            FileStream fs = new FileStream(QCTFilePath, overwrite ? FileMode.Create : FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.None);
-            return fs;
-        }
-
-        private async Task WritePaletteAndInterpolationMatrix(FileStream fs, CancellationToken cancellationToken = default(CancellationToken))
-        {
-            Log.Debug("Writing palette");
-            if (Palette.Length > 128)
-                throw new InvalidOperationException("The palette must be of length 128 or less");
-            byte[] paletteBuffer = new byte[1024];
-            for (int i = 0; i < Palette.Length; i++)
+            await Task.Run(() =>
             {
-                Rgb24 thisColour = Palette[i];
-                paletteBuffer[i * 4] = thisColour.B;
-                paletteBuffer[i * 4 + 1] = thisColour.G;
-                paletteBuffer[i * 4 + 2] = thisColour.R;
-            }
-            await fs.WriteAsync(paletteBuffer, 0, 1024, cancellationToken);
-
-            if (InterpolationMatrix.Length != 16384)
-                throw new InvalidOperationException("The interpolation matrix must be of length 16384");
-            Log.Debug("Writing interpolation matrix");
-            await fs.WriteAsync(InterpolationMatrix, 0, 16384, cancellationToken);
-        }
-
-        private async Task WriteTiles(FileStream fs, Tile[] tiles, MapArea area, OpenGLManager? glManager, CancellationToken cancellationToken = default(CancellationToken))
-        {
-            Log.Debug("Writing tiles");
-
-            int capacityPerBlock = Environment.ProcessorCount * 4;
-            using IQuantizer<Rgba32> quantizer = new PaletteQuantizer(new ReadOnlyMemory<Color>(Palette), new QuantizerOptions() { Dither = null }).CreatePixelSpecificQuantizer<Rgba32>(new Configuration());
-
-            //Create DataFlow blocks
-            TransformBlock<Tile, (Tile, Image<Rgba32>?[])> loadBlock = new TransformBlock<Tile, (Tile, Image<Rgba32>?[])>(
-                async tile => (tile, await tile.LoadImages()),
-                new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, EnsureOrdered = true, BoundedCapacity = capacityPerBlock, CancellationToken = cancellationToken });
-
-            TransformBlock<(Tile, Image<Rgba32>?[]), (Tile, byte[])> processBlock;
-            if (glManager == null)
-            {
-                processBlock = new TransformBlock<(Tile, Image<Rgba32>?[]), (Tile, byte[])>(
-                    ((Tile tile, Image<Rgba32>?[] images) tuple) => (tuple.tile, tuple.tile.ProcessImageSW(tuple.images, area)),
-                    new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, EnsureOrdered = true, BoundedCapacity = capacityPerBlock, CancellationToken = cancellationToken });
-            }
-            else
-            {
-                //Find the maximum width and height for all tiles' web tiles
-                int maxWidth = 0;
-                int maxHeight = 0;
-                foreach (Tile tile in tiles)
+                for (uint i = 0; i < tiles.Length; i++)
                 {
-                    maxWidth = Math.Max(maxWidth, tile.WebTileWidth);
-                    maxHeight = Math.Max(maxHeight, tile.WebTileHeight);
+                    Log.Verbose("Processing tile {index} / {total}", i + 1, totalTiles);
+
+                    //Create new tile object at the correct top left corner location
+                    tiles[i] = new Tile(i, new Osgb36Coordinate(
+                        map.TopLeft.Easting + ((i % tilesWidth) * metersPerTile),
+                        map.TopLeft.Northing - (Math.Floor((double)i / (double)tilesWidth) * metersPerTile)
+                    ), map.Scale, metersPerTile);
+                    cancellationToken.ThrowIfCancellationRequested();
                 }
-
-                processBlock = new TransformBlock<(Tile, Image<Rgba32>?[]), (Tile, byte[])>(
-                    async ((Tile tile, Image<Rgba32>?[] images) tuple) => (tuple.tile, await tuple.tile.ProcessImageHW(tuple.images, glManager, maxWidth, maxHeight)),
-                    new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, EnsureOrdered = true, BoundedCapacity = capacityPerBlock, CancellationToken = cancellationToken });
-            }
-
-            TransformBlock<(Tile, byte[]), byte[]> compressBlock = new TransformBlock<(Tile, byte[]), byte[]>(
-                    ((Tile tile, byte[] image) tuple) => tuple.tile.ConvertToPaletteAndCompress(tuple.image, quantizer),
-                    new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, EnsureOrdered = true, BoundedCapacity = capacityPerBlock, CancellationToken = cancellationToken });
-
-            uint tilesWritten = 0;
-            uint totalBytesWritten = 0;
-            ActionBlock<byte[]> writeBlock = new ActionBlock<byte[]>(async (data) =>
-            {
-                Log.Debug("Writing tile {tileId} / {total}", tilesWritten + 1, Width * Height);
-
-                //The pointer should point to the end of the file (the offset of index pointers plus size of index pointers plus bytes written)
-                uint pointerLocation = 0x45A0 + Width * Height * 4 + totalBytesWritten;
-
-                //Firstly write the tile data to the pointer location
-                fs.Seek(pointerLocation, SeekOrigin.Begin);
-                await fs.WriteAsync(data, cancellationToken);
-
-                //Next write the pointer to the image index pointers array
-                fs.Seek(0x45A0 + tilesWritten * 4, SeekOrigin.Begin);
-                await fs.WriteAsync(BitConverter.GetBytes(pointerLocation).AsMemory(0, 4), cancellationToken);
-
-                //Finally, increase the tiles counter and bytes counter
-                tilesWritten++;
-                totalBytesWritten += (uint)data.Length;
-            }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1, EnsureOrdered = true, BoundedCapacity = capacityPerBlock, CancellationToken = cancellationToken });
-
-            loadBlock.LinkTo(processBlock, new DataflowLinkOptions() { PropagateCompletion = true });
-            processBlock.LinkTo(compressBlock, new DataflowLinkOptions() { PropagateCompletion = true });
-            compressBlock.LinkTo(writeBlock, new DataflowLinkOptions() { PropagateCompletion = true });
-
-            //Create update posting task
-            Task updatePoster = new Task(async () =>
-            {
-                //Start posting updates until we're done
-                ((ProgressCollection)progress.CurrentProgressItem!).TotalItems = (uint)tiles.Length;
-                do
-                {
-                    await Task.WhenAny(writeBlock.Completion, Task.Delay(1000));
-
-                    Log.Verbose("Load: {load}    LoadOutput: {loadOutput}    Process: {process}    ProcessOutput: {processOutput}    Compress: {compress}    CompressOutput: {compressOutput}    Write: {write}", loadBlock.InputCount, loadBlock.OutputCount, processBlock.InputCount, processBlock.OutputCount, compressBlock.InputCount, compressBlock.OutputCount, writeBlock.InputCount);
-                    progress.CurrentProgress!.Report(tilesWritten);
-                } while (!writeBlock.Completion.IsCompleted);
             });
-            updatePoster.Start();
 
-            //Post tiles to processBlock
-            foreach (Tile tile in tiles)
+            progress.CurrentProgress!.Report(2);
+            return tiles;
+        }
+
+        private static async Task<GeographicalReferencingCoefficients> CalculateGeographicalReferencingPolynomials(Map map, ProgressTracker progress, int polynomialSampleSize, double pixelsPerMeter, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            GeographicalReferencingCoefficients coefficients;
+            try
             {
-                await loadBlock.SendAsync(tile, cancellationToken);
+                coefficients = await Task.Run(() => PolynomialCalculator.Calculate(progress.CurrentProgress!, map.TopLeft, map.BottomRight, polynomialSampleSize, pixelsPerMeter, cancellationToken));
                 cancellationToken.ThrowIfCancellationRequested();
             }
-            loadBlock.Complete();
-            await writeBlock.Completion;
-            await updatePoster;
-        }
-
-        private async Task WriteMetadata(FileStream fs, CancellationToken cancellationToken = default(CancellationToken))
-        {
-            Log.Debug("Writing metadata");
-
-            //Firstly figure out where new references will go
-            uint newPointerLocation = (uint)fs.Length;
-
-            //Now write the metadata
-
-            //Type (magic number)
-            await fs.WriteIntegerMetadata(0x00, (uint)Metadata.FileType, cancellationToken);
-
-            //File format version
-            await fs.WriteIntegerMetadata(0x04, 0x00000002, cancellationToken);
-
-            //Width
-            await fs.WriteIntegerMetadata(0x08, Width, cancellationToken);
-
-            //Height
-            await fs.WriteIntegerMetadata(0x0C, Height, cancellationToken);
-
-            //Long Title
-            newPointerLocation = await fs.WriteStringMetadata(0x10, Metadata.LongTitle, newPointerLocation, cancellationToken);
-
-            //Name
-            newPointerLocation = await fs.WriteStringMetadata(0x14, Metadata.Name, newPointerLocation, cancellationToken);
-
-            //Identifier
-            newPointerLocation = await fs.WriteStringMetadata(0x18, Metadata.Identifier, newPointerLocation, cancellationToken);
-
-            //Edition
-            newPointerLocation = await fs.WriteStringMetadata(0x1C, Metadata.Edition, newPointerLocation, cancellationToken);
-
-            //Revision
-            newPointerLocation = await fs.WriteStringMetadata(0x20, Metadata.Revision, newPointerLocation, cancellationToken);
-
-            //Keywords
-            newPointerLocation = await fs.WriteStringMetadata(0x24, Metadata.Keywords, newPointerLocation, cancellationToken);
-
-            //Copyright
-            newPointerLocation = await fs.WriteStringMetadata(0x28, Metadata.Copyright, newPointerLocation, cancellationToken);
-
-            //Scale
-            newPointerLocation = await fs.WriteStringMetadata(0x2C, Metadata.Scale, newPointerLocation, cancellationToken);
-
-            //Datum
-            newPointerLocation = await fs.WriteStringMetadata(0x30, Metadata.Datum, newPointerLocation, cancellationToken);
-
-            //Depths
-            newPointerLocation = await fs.WriteStringMetadata(0x34, Metadata.Depths, newPointerLocation, cancellationToken);
-
-            //Heights
-            newPointerLocation = await fs.WriteStringMetadata(0x38, Metadata.Heights, newPointerLocation, cancellationToken);
-
-            //Projection
-            newPointerLocation = await fs.WriteStringMetadata(0x3C, Metadata.Projection, newPointerLocation, cancellationToken);
-
-            //Flags
-            await fs.WriteIntegerMetadata(0x40, (uint)Metadata.Flags, cancellationToken);
-
-            //Original File Name
-            if (Metadata.WriteOriginalFileName)
-                newPointerLocation = await fs.WriteStringMetadata(0x44, Path.GetFileName(QCTFilePath), newPointerLocation, cancellationToken);
-            else
-                await fs.WriteIntegerMetadata(0x44, 0, cancellationToken);
-
-            //Original File Size
-            if (Metadata.WriteOriginalFileSize)
-                throw new NotImplementedException("Writing the file size is too much like hard work");
-            else
-                await fs.WriteIntegerMetadata(0x48, 0, cancellationToken);
-
-            //Original File Creation Time
-            if (Metadata.WriteOriginalCreationTime)
-                await fs.WriteIntegerMetadata(0x4C, (uint)DateTime.UtcNow.Subtract(DateTime.UnixEpoch).TotalSeconds, cancellationToken);
-            else
-                await fs.WriteIntegerMetadata(0x4C, 0, cancellationToken);
-
-            //Reserved
-            await fs.WriteIntegerMetadata(0x50, 0, cancellationToken);
-
-            //Extended data structure
-            //Create pointer to extended data structure
-            await fs.WriteIntegerMetadata(0x54, newPointerLocation, cancellationToken);
-            //Remember where the extended data structure is located - we'll need it
-            uint edsBeginLocation = newPointerLocation;
-            //Increase newPointerLocation by 0x20 to make space for it
-            newPointerLocation += 0x20;
-
-            //EDS Map Type
-            newPointerLocation = await fs.WriteStringMetadata(edsBeginLocation + 0x00, Metadata.MapType, newPointerLocation, cancellationToken);
-
-            //EDS Datum Shift
-            newPointerLocation = await fs.WriteDoubleArrayMetadata(edsBeginLocation + 0x04, new double[] { Metadata.DatumShiftNorth, Metadata.DatumShiftEast }, newPointerLocation, cancellationToken);
-
-            //Disk Name
-            await fs.WriteIntegerMetadata(edsBeginLocation + 0x08, 0, cancellationToken);
-
-            //Reserved
-            await fs.WriteIntegerMetadata(edsBeginLocation + 0x0C, 0, cancellationToken);
-
-            //Reserved
-            await fs.WriteIntegerMetadata(edsBeginLocation + 0x10, 0, cancellationToken);
-
-            //Licence Information
-            await fs.WriteIntegerMetadata(edsBeginLocation + 0x14, 0, cancellationToken);
-
-            //Associated Data
-            await fs.WriteIntegerMetadata(edsBeginLocation + 0x18, 0, cancellationToken);
-
-            //Digital Map Shop
-            await fs.WriteIntegerMetadata(edsBeginLocation + 0x1C, 0, cancellationToken);
-
-            //Number of map outline points
-            await fs.WriteIntegerMetadata(0x58, (uint)Metadata.MapOutline.Length, cancellationToken);
-
-            //Map outline
-            double[] mapOutlineD = new double[Metadata.MapOutline.Length * 2];
-            for (int i = 0; i < Metadata.MapOutline.Length; i++)
+            catch (OutOfMemoryException e)
             {
-                mapOutlineD[i * 2] = Metadata.MapOutline[i].Latitude;
-                mapOutlineD[i * 2 + 1] = Metadata.MapOutline[i].Longitude;
+                throw new MapGenerationException(MapGenerationExceptionReason.PolynomialCalculationOutOfMemory, e);
             }
-            newPointerLocation = await fs.WriteDoubleArrayMetadata(0x5C, mapOutlineD, newPointerLocation, cancellationToken);
+
+            return coefficients;
         }
 
-        private async Task WriteGeographicalReferencingPolynomials(FileStream fs, CancellationToken cancellationToken = default(CancellationToken))
+        /// <summary>
+        /// Download the required images for each tile
+        /// </summary>
+        private static async Task<Color[]> DownloadRequiredImagesAndGetPalette(Map map, ProgressTracker progress, Tile[] tiles, string? token, CancellationToken cancellationToken = default(CancellationToken))
         {
-            Log.Debug("Writing geographical referencing coefficients");
-            await fs.WriteDoubleMetadata(0x060, GeographicalReferencingCoefficients.Eas, cancellationToken);
-            await fs.WriteDoubleMetadata(0x068, GeographicalReferencingCoefficients.EasY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x070, GeographicalReferencingCoefficients.EasX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x078, GeographicalReferencingCoefficients.EasYY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x080, GeographicalReferencingCoefficients.EasXY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x088, GeographicalReferencingCoefficients.EasXX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x090, GeographicalReferencingCoefficients.EasYYY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x098, GeographicalReferencingCoefficients.EasYYX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x0A0, GeographicalReferencingCoefficients.EasYXX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x0A8, GeographicalReferencingCoefficients.EasXXX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x0B0, GeographicalReferencingCoefficients.Nor, cancellationToken);
-            await fs.WriteDoubleMetadata(0x0B8, GeographicalReferencingCoefficients.NorY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x0C0, GeographicalReferencingCoefficients.NorX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x0C8, GeographicalReferencingCoefficients.NorYY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x0D0, GeographicalReferencingCoefficients.NorXY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x0D8, GeographicalReferencingCoefficients.NorXX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x0E0, GeographicalReferencingCoefficients.NorYYY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x0E8, GeographicalReferencingCoefficients.NorYYX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x0F0, GeographicalReferencingCoefficients.NorYXX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x0F8, GeographicalReferencingCoefficients.NorXXX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x100, GeographicalReferencingCoefficients.Lat, cancellationToken);
-            await fs.WriteDoubleMetadata(0x108, GeographicalReferencingCoefficients.LatX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x110, GeographicalReferencingCoefficients.LatY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x118, GeographicalReferencingCoefficients.LatXX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x120, GeographicalReferencingCoefficients.LatXY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x128, GeographicalReferencingCoefficients.LatYY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x130, GeographicalReferencingCoefficients.LatXXX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x138, GeographicalReferencingCoefficients.LatXXY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x140, GeographicalReferencingCoefficients.LatXYY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x148, GeographicalReferencingCoefficients.LatYYY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x150, GeographicalReferencingCoefficients.Lon, cancellationToken);
-            await fs.WriteDoubleMetadata(0x158, GeographicalReferencingCoefficients.LonX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x160, GeographicalReferencingCoefficients.LonY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x168, GeographicalReferencingCoefficients.LonXX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x170, GeographicalReferencingCoefficients.LonXY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x178, GeographicalReferencingCoefficients.LonYY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x180, GeographicalReferencingCoefficients.LonXXX, cancellationToken);
-            await fs.WriteDoubleMetadata(0x188, GeographicalReferencingCoefficients.LonXXY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x190, GeographicalReferencingCoefficients.LonXYY, cancellationToken);
-            await fs.WriteDoubleMetadata(0x198, GeographicalReferencingCoefficients.LonYYY, cancellationToken);
+            Log.Debug("Download Required Images");
+
+            TileDownloader downloader = new TileDownloader(progress.CurrentProgress!, tiles, map.Area, map.Scale);
+
+            try
+            {
+                await downloader.DownloadTilesAndGeneratePalette(token, cancellationToken);
+            }
+            catch (HttpRequestException e)
+            {
+                throw new MapGenerationException(MapGenerationExceptionReason.DownloadError, e);
+            }
+            return downloader.Palette;
+        }
+
+        private static byte[] GenerateInterpolationMatrix(Map map, Color[] palette)
+        {
+            Log.Debug("Generating Interpolation Matrix");
+
+            InterpolationMatrixCreator creator = new InterpolationMatrixCreator(palette, map.Scale);
+            return creator.GetInterpolationMatrix();
         }
     }
 }

@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using OsMapDownloader.Qct.InterpolationMatrix;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Memory;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing.Processors.Quantization;
 
-namespace OsMapDownloader.WebDownloader
+namespace OsMapDownloader.Qct.WebDownloader
 {
     public class PaletteCreator
     {
@@ -16,13 +17,13 @@ namespace OsMapDownloader.WebDownloader
         public PaletteCreator(Scale mapScale)
         {
             _mapScale = mapScale;
-            _quantizer = new OctreeQuantizer<Rgb24>(new Configuration(), new QuantizerOptions() { MaxColors = 128 - InterpolationMatrix.InterpolationMatrixCreator.GetMapColours(_mapScale).Count, Dither = null });
+            _quantizer = new OctreeQuantizer<Rgb24>(new Configuration(), new QuantizerOptions() { MaxColors = 128 - InterpolationMatrixCreator.GetMapColours(_mapScale).Count, Dither = null });
         }
 
         public Rgb24[] GetPalette()
         {
             Rgb24[] palette = _quantizer.Palette.ToArray();
-            return InterpolationMatrix.InterpolationMatrixCreator.GetMapColours(_mapScale).Concat(palette).ToArray();
+            return InterpolationMatrixCreator.GetMapColours(_mapScale).Concat(palette).ToArray();
         }
 
         public void AddImage(byte[] imageData)

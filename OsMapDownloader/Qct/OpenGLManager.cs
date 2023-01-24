@@ -7,7 +7,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OsMapDownloader.Border;
 
-namespace OsMapDownloader
+namespace OsMapDownloader.Qct
 {
     public class OpenGLManager : OpenTK.Windowing.Desktop.GameWindow
     {
@@ -419,8 +419,8 @@ void main()
             Matrix4 scaleMat = Matrix4.CreateScale((float)xScale, (float)yScale, 1.0f);
 
             //Create translation matrix (up = positive, left = positive)
-            double xTrans = (((canvasWidth -  centerX) - (canvasWidth / 2)) / canvasWidth) * xScale * 2; //Take pixels to move, divide by width, then times by xScale and double
-            double yTrans = (((canvasHeight - centerY) - (canvasHeight / 2)) / canvasHeight) * yScale * 2;
+            double xTrans = (canvasWidth - centerX - canvasWidth / 2) / canvasWidth * xScale * 2; //Take pixels to move, divide by width, then times by xScale and double
+            double yTrans = (canvasHeight - centerY - canvasHeight / 2) / canvasHeight * yScale * 2;
             Matrix4 translateMat = Matrix4.CreateTranslation((float)xTrans, (float)yTrans, 0.0f);
 
             //Create rotation matrix

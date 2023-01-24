@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace OsMapDownloader.CompressionMethod
+namespace OsMapDownloader.Qct.CompressionMethod
 {
     public abstract class CompressionMethod
     {

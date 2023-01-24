@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace OsMapDownloader.CompressionMethod
+namespace OsMapDownloader.Qct.CompressionMethod
 {
     public class RunLength : CompressionMethod
     {
@@ -45,7 +45,7 @@ namespace OsMapDownloader.CompressionMethod
                     //We've hit the end of the chain and thus need to write to the compressed data
 
                     //Get the index of the pixel value in the subpalette
-                    byte spIndex = Convert.ToByte(Array.FindIndex(subpalette, x => (x == pixelValue)));
+                    byte spIndex = Convert.ToByte(Array.FindIndex(subpalette, x => x == pixelValue));
 
                     //Build the byte to append
                     byte byteToAppend = 0x00;

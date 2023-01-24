@@ -17,7 +17,7 @@ using OsMapDownloader.Gui.Areas;
 using OsMapDownloader.Gui.Areas.Bounds;
 using OsMapDownloader.Gui.Tile;
 using OsMapDownloader.Gui.ViewModels;
-using OsMapDownloader.WebDownloader;
+using OsMapDownloader.Qct.WebDownloader;
 
 namespace OsMapDownloader.Gui.Views
 {

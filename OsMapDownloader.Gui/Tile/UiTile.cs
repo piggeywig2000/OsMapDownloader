@@ -10,7 +10,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using OsMapDownloader.Coords;
-using OsMapDownloader.WebDownloader;
+using OsMapDownloader.Qct.WebDownloader;
 
 namespace OsMapDownloader.Gui.Tile
 {

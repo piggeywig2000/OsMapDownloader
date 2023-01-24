@@ -5,7 +5,6 @@ using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Solvers;
 using MathNet.Numerics.LinearAlgebra.Double.Solvers;
 using OsMapDownloader.Coords;
-using OsMapDownloader.Qct;
 using Serilog;
 
 namespace OsMapDownloader
@@ -15,7 +14,7 @@ namespace OsMapDownloader
         //https://en.wikipedia.org/wiki/Polynomial_regression
         //https://en.wikipedia.org/wiki/Chebyshev_nodes
 
-        public static QctGeographicalReferencingCoefficients Calculate(IProgress<double> progress, Osgb36Coordinate tl, Osgb36Coordinate br, int sampleSize, double pixelsPerMeter, CancellationToken cancellationToken = default(CancellationToken))
+        public static GeographicalReferencingCoefficients Calculate(IProgress<double> progress, Osgb36Coordinate tl, Osgb36Coordinate br, int sampleSize, double pixelsPerMeter, CancellationToken cancellationToken = default(CancellationToken))
         {
             Log.Debug("Calculating Geographical Referencing Polynomials, this will take a while");
 
@@ -39,7 +38,7 @@ namespace OsMapDownloader
 
             Log.Debug("Calculated Geographical Referencing Polynomials");
             
-            return new QctGeographicalReferencingCoefficients(
+            return new GeographicalReferencingCoefficients(
                 xC[0], xC[2], xC[1], xC[5], xC[4], xC[3], xC[9], xC[8], xC[7], xC[6],
                 yC[0], yC[2], yC[1], yC[5], yC[4], yC[3], yC[9], yC[8], yC[7], yC[6],
                 latC[0], latC[1], latC[2], latC[3], latC[4], latC[5], latC[6], latC[7], latC[8], latC[9],
