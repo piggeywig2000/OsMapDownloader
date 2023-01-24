@@ -5,11 +5,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommandLine;
 using CommandLine.Text;
-using Microsoft.Extensions.Logging;
 using OsMapDownloader.Cli.CommandOptions;
 using OsMapDownloader.Coords;
 using OsMapDownloader.Progress;
 using OsMapDownloader.Qct;
+using Serilog;
+using Serilog.Events;
 
 namespace OsMapDownloader
 {
@@ -52,24 +53,31 @@ The map is at 1:50000 scale (instead of the default 1:25000).");
             return 1;
         }
 
-        static ILogger CreateLoggerFromOptions(CommonOptions options) =>
-            LoggerFactory.Create(logging => logging.AddConsole().AddDebug().SetMinimumLevel(options.Silent ? LogLevel.None : options.Quiet ? LogLevel.Warning : options.Debug ? LogLevel.Debug : options.Verbose ? LogLevel.Trace : LogLevel.Information)).CreateLogger("");
+        static void CreateLoggerFromOptions(CommonOptions options)
+        {
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Is(options.Quiet ? LogEventLevel.Warning : options.Debug ? LogEventLevel.Debug : options.Verbose ? LogEventLevel.Verbose : LogEventLevel.Information)
+                .Filter.ByExcluding(e => options.Silent)
+                .WriteTo.Console()
+                .WriteTo.Debug()
+                .CreateLogger();
+        }
 
         static Task<int> Run(string[] args, BoxOptions options)
         {
-            ILogger logger = CreateLoggerFromOptions(options);
+            CreateLoggerFromOptions(options);
 
             //Find top right and bottom left by converting to OSGB first, and constructing coords from those
             Wgs84Coordinate topLeft = new Wgs84Coordinate(options.TopLeftLongitude, options.TopLeftLatitude);
             Wgs84Coordinate bottomRight = new Wgs84Coordinate(options.BottomRightLongitude, options.BottomRightLatitude);
             Wgs84Coordinate topRight = new Osgb36Coordinate(bottomRight.ToOsgb36Accurate().Easting, topLeft.ToOsgb36Accurate().Northing).ToWgs84Accurate();
             Wgs84Coordinate bottomLeft = new Osgb36Coordinate(topLeft.ToOsgb36Accurate().Easting, bottomRight.ToOsgb36Accurate().Northing).ToWgs84Accurate();
-            return Run(args, logger, new Wgs84Coordinate[] { topLeft, topRight, bottomRight, bottomLeft }, options);
+            return Run(args, new Wgs84Coordinate[] { topLeft, topRight, bottomRight, bottomLeft }, options);
         }
 
         static Task<int> Run(string[] args, PointsOptions options)
         {
-            ILogger logger = CreateLoggerFromOptions(options);
+            CreateLoggerFromOptions(options);
 
             string pointsFile = File.ReadAllText(options.PointsPath);
             string[] pointsStr = pointsFile.Split(',', '\n', '\r', '\t', ' ').Where(str => !string.IsNullOrEmpty(str)).ToArray();
@@ -78,19 +86,19 @@ The map is at 1:50000 scale (instead of the default 1:25000).");
             {
                 if (!double.TryParse(pointsStr[i], out double num))
                 {
-                    logger.LogCritical("{numStr} is not a valid number", pointsStr[i]);
+                    Log.Fatal("{numStr} is not a valid number", pointsStr[i]);
                     Environment.Exit(1);
                 }
                 pointsDouble[i] = num;
             }
             if (pointsDouble.Length % 2 == 1)
             {
-                logger.LogCritical("The border points file has an odd number of values. Since is should be latitude-longitude pairs, there must be an even number of values");
+                Log.Fatal("The border points file has an odd number of values. Since is should be latitude-longitude pairs, there must be an even number of values");
                 Environment.Exit(1);
             }
             if (pointsDouble.Length < 6)
             {
-                logger.LogCritical("The border points file has less than 3 points");
+                Log.Fatal("The border points file has less than 3 points");
                 Environment.Exit(1);
             }
             Wgs84Coordinate[] points = new Wgs84Coordinate[pointsDouble.Length / 2];
@@ -98,16 +106,15 @@ The map is at 1:50000 scale (instead of the default 1:25000).");
             {
                 points[i / 2] = new Wgs84Coordinate(pointsDouble[i + 1], pointsDouble[i]);
             }
-            return Run(args, logger, points, options);
+            return Run(args, points, options);
         }
 
-        static async Task<int> Run(string[] args, ILogger logger, Wgs84Coordinate[] borderPoints, CommonOptions options)
+        static async Task<int> Run(string[] args, Wgs84Coordinate[] borderPoints, CommonOptions options)
         {
             //Catch overflow exceptions
             try
             {
-                Map map = new Map(logger,
-                borderPoints,
+                Map map = new Map(borderPoints,
                 options.Scale,
                 new QctMetadata()
                 {
@@ -132,13 +139,13 @@ The map is at 1:50000 scale (instead of the default 1:25000).");
                     DatumShiftNorth = 0.0,
                     DatumShiftEast = 0.0
                 });
-                map.Progress.ProgressChanged += (s, e) => LogProgressChange(map, logger);
-                LogProgressChange(map, logger);
+                map.Progress.ProgressChanged += (s, e) => LogProgressChange(map);
+                LogProgressChange(map);
                 await map.GenerateQCTFileFromMap(options.DestinationPath, options.Overwrite, options.PolynomialSampleSize, options.Token, options.KeepTiles, options.DisableHardwareAccel);
             }
             catch (MapGenerationException e)
             {
-                logger.LogCritical(e.Reason switch
+                Log.Fatal(e.Reason switch
                 {
                     MapGenerationExceptionReason.BorderOutOfBounds => "A point in the map border is too far away from the UK. Try moving far away points closer to the UK, and try again.",
                     MapGenerationExceptionReason.BorderNonSimple => "The map border is an invalid shape.\n\nCheck that:\n• The border does not cross over itself\n• There aren't two points in the same location\n• There aren't 3 points connected to each other in a perfectly straight line",
@@ -152,21 +159,21 @@ The map is at 1:50000 scale (instead of the default 1:25000).");
             }
             catch (Exception e)
             {
-                logger.LogCritical(e, "An unknown error occurred while exporting. Error details are provided below:");
+                Log.Fatal(e, "An unknown error occurred while exporting. Error details are provided below:");
                 return 2;
             }
             return 0;
         }
 
-        private static void LogProgressChange(Map map, ILogger logger)
+        private static void LogProgressChange(Map map)
         {
             if (map.Progress.IsCompleted)
             {
-                logger.LogInformation("Done");
+                Log.Information("Done");
             }
             else
             {
-                logger.LogInformation("{name}: {percentage}%\n{status}", map.Progress.CurrentProgressItem!.Name, (map.Progress.CurrentProgressItem!.Value * 100).ToString("0.0000"), map.Progress.CurrentProgressItem!.Status);
+                Log.Information("{name}: {percentage}%\n{status}", map.Progress.CurrentProgressItem!.Name, (map.Progress.CurrentProgressItem!.Value * 100).ToString("0.0000"), map.Progress.CurrentProgressItem!.Status);
             }
         }
     }

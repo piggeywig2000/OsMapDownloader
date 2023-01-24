@@ -5,16 +5,15 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using OsMapDownloader.Border;
 using OsMapDownloader.Progress;
+using Serilog;
 using SixLabors.ImageSharp;
 
 namespace OsMapDownloader.WebDownloader
 {
     public class TileDownloader
     {
-        private readonly ILogger log;
         private readonly IProgress<double> progress;
         private readonly Tile[] _tiles;
         private readonly MapArea _area;
@@ -23,9 +22,8 @@ namespace OsMapDownloader.WebDownloader
 
         public Color[] Palette { get => _paletteCreator.GetPalette().Select(rgb => Color.FromPixel(rgb)).ToArray(); }
 
-        public TileDownloader(ILogger logger, IProgress<double> progress, Tile[] tiles, MapArea area, Scale mapScale)
+        public TileDownloader(IProgress<double> progress, Tile[] tiles, MapArea area, Scale mapScale)
         {
-            log = logger;
             this.progress = progress;
             _tiles = tiles;
             _area = area;
@@ -75,9 +73,9 @@ namespace OsMapDownloader.WebDownloader
 
             if (string.IsNullOrEmpty(token))
             {
-                log.LogDebug("Fetching token");
+                Log.Debug("Fetching token");
                 token = await WebTile.GetToken(client, cancellationToken);
-                log.LogDebug("Fetched token: {token}", token);
+                Log.Debug("Fetched token: {token}", token);
             }
 
             const int TASK_QUEUE_SIZE = 10;
@@ -109,7 +107,7 @@ namespace OsMapDownloader.WebDownloader
                     if (data != null) 
                         _paletteCreator.AddImage(data);
 
-                    log.LogDebug("Downloaded image {completed} / {total}", numCompleted, numTotal);
+                    Log.Debug("Downloaded image {completed} / {total}", numCompleted, numTotal);
                     if (DateTime.UtcNow - lastReportTime > TimeSpan.FromSeconds(1))
                     {
                         lastReportTime = DateTime.UtcNow;
@@ -129,7 +127,7 @@ namespace OsMapDownloader.WebDownloader
                 //Only download if we don't already have the image
                 if (!File.Exists("working/" + tile.FileName + ".png"))
                 {
-                    log.LogDebug("Downloading image with filename {fileName}", tile.FileName);
+                    Log.Debug("Downloading image with filename {fileName}", tile.FileName);
                     data = await tile.DownloadAsync(client, token, cancellationToken);
 
                     if (data != null)

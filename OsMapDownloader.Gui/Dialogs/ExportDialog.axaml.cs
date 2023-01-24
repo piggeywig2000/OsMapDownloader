@@ -7,12 +7,12 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using Microsoft.Extensions.Logging;
 using OsMapDownloader.Gui.Areas;
 using OsMapDownloader.Gui.Config;
 using OsMapDownloader.Gui.VIewModels;
 using OsMapDownloader.Gui.Views;
 using OsMapDownloader.Progress;
+using Serilog;
 
 namespace OsMapDownloader.Gui.Dialogs
 {
@@ -242,10 +242,13 @@ namespace OsMapDownloader.Gui.Dialogs
         private async Task StartExport()
         {
             IsExporting = true;
-            ILogger logger = LoggerFactory.Create(logging => logging.AddDebug().SetMinimumLevel(LogLevel.Debug)).CreateLogger("");
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.Debug()
+                .CreateLogger();
             try
             {
-                Map map = new Map(logger, areaToExport.Points.ToArray(), Scale, metadata.UnderlyingMetadata);
+                Map map = new Map(areaToExport.Points.ToArray(), Scale, metadata.UnderlyingMetadata);
                 map.Progress.ProgressChanged += (s, e) => UpdateProgress(map.Progress);
                 UpdateProgress(map.Progress);
                 await map.GenerateQCTFileFromMap(FileLocation, true, settings.PolynomialSampleSize, settings.Token, settings.KeepTiles, !settings.UseHardwareAcceleration, exportCancelSource.Token);

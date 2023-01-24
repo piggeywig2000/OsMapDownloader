@@ -4,11 +4,11 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using OsMapDownloader.Border;
 using OsMapDownloader.CompressionMethod;
 using OsMapDownloader.Coords;
 using OsMapDownloader.WebDownloader;
+using Serilog;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
@@ -21,8 +21,6 @@ namespace OsMapDownloader
 {
     public class Tile
     {
-        private readonly ILogger log;
-        
         public uint Id { get; }
 
         public Osgb36Coordinate TopLeft { get; }
@@ -45,9 +43,8 @@ namespace OsMapDownloader
         /// Create a new Tile with the specified top left location.
         /// </summary>
         /// <param name="topLeftCorner">The location of the top left corner</param>
-        public Tile(ILogger logger, uint id, Osgb36Coordinate topLeftCorner, Scale mapScale, double metersPerTile)
+        public Tile(uint id, Osgb36Coordinate topLeftCorner, Scale mapScale, double metersPerTile)
         {
-            log = logger;
             Id = id;
             TopLeft = topLeftCorner;
             BottomRight = new Osgb36Coordinate(topLeftCorner.Easting + metersPerTile, topLeftCorner.Northing - metersPerTile);
@@ -462,28 +459,28 @@ namespace OsMapDownloader
         private byte[] CompressTile(byte[] tile)
         {
             byte[] runLengthCompressed = RunLength.Compress(tile);
-            log.LogTrace("Run length compression is {size} bytes", runLengthCompressed.Length);
+            Log.Verbose("Run length compression is {size} bytes", runLengthCompressed.Length);
 
             byte[] pixelPackingCompressed = PixelPacking.Compress(tile);
-            log.LogTrace("Pixel packing compression is {size} bytes", pixelPackingCompressed.Length);
+            Log.Verbose("Pixel packing compression is {size} bytes", pixelPackingCompressed.Length);
 
             byte[] huffmanCodingCompressed = HuffmanCoding.Compress(tile);
-            log.LogTrace("Huffman coding compression is {size} bytes", huffmanCodingCompressed.Length);
+            Log.Verbose("Huffman coding compression is {size} bytes", huffmanCodingCompressed.Length);
 
             //Return whichever one is smaller
             if (runLengthCompressed.Length < pixelPackingCompressed.Length && runLengthCompressed.Length < huffmanCodingCompressed.Length)
             {
-                log.LogDebug("Using run length compression");
+                Log.Debug("Using run length compression");
                 return runLengthCompressed;
             }
             else if (pixelPackingCompressed.Length < runLengthCompressed.Length && pixelPackingCompressed.Length < huffmanCodingCompressed.Length)
             {
-                log.LogDebug("Using pixel packing compression");
+                Log.Debug("Using pixel packing compression");
                 return pixelPackingCompressed;
             }
             else
             {
-                log.LogDebug("Using huffman coding compression");
+                Log.Debug("Using huffman coding compression");
                 return huffmanCodingCompressed;
             }
         }

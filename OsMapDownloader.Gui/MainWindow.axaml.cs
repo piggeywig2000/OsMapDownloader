@@ -6,7 +6,6 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
-using Microsoft.Extensions.Logging;
 using OsMapDownloader.Coords;
 using OsMapDownloader.Gui.Areas;
 using OsMapDownloader.Gui.Dialogs;

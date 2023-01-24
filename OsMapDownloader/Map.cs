@@ -2,13 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using OsMapDownloader.Coords;
 using OsMapDownloader.Border;
 using OsMapDownloader.InterpolationMatrix;
 using OsMapDownloader.Progress;
 using OsMapDownloader.Qct;
 using OsMapDownloader.WebDownloader;
+using Serilog;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -16,8 +16,6 @@ namespace OsMapDownloader
 {
     public class Map
     {
-        private readonly ILogger log;
-
         public ProgressTracker Progress { get; }
 
         public Osgb36Coordinate TopLeft { get; }
@@ -54,9 +52,8 @@ namespace OsMapDownloader
         /// </summary>
         /// <param name="topLeft">The top left corner of the bounding box</param>
         /// <param name="bottomRight">The bottom right corner of the bounding box</param>
-        public Map(ILogger logger, Wgs84Coordinate[] borderPoints, Scale scale, QctMetadata metadata)
+        public Map(Wgs84Coordinate[] borderPoints, Scale scale, QctMetadata metadata)
         {
-            log = logger;
             Progress = new ProgressTracker(
                 (new ProgressPhases("Getting set up", new ProgressPhase("Calculating map area", 1), new ProgressPhase("Creating tiles", 2)), 1),
                 (new ProgressPhases("Calculating geographical referencing polynomial coefficients", new ProgressPhase("Generating sample coordinates", 0.75), new ProgressPhase("Converting sample coordinates", 20), new ProgressPhase("Calculating coefficient 1", 3), new ProgressPhase("Calculating coefficient 2", 3), new ProgressPhase("Calculating coefficient 3", 3), new ProgressPhase("Calculating coefficient 4", 3)), 15),
@@ -92,15 +89,15 @@ namespace OsMapDownloader
                 throw new MapGenerationException(MapGenerationExceptionReason.BorderOutOfBounds);
             }
 
-            log.LogDebug("This map has top left corner at {topLeft} and bottom right corner at {bottomRight} when converted to Eastings/Northings", TopLeft, BottomRight);
-            log.LogDebug("This map has a scale of 1:{scale}", ScaleNum);
+            Log.Debug("This map has top left corner at {topLeft} and bottom right corner at {bottomRight} when converted to Eastings/Northings", TopLeft, BottomRight);
+            Log.Debug("This map has a scale of 1:{scale}", ScaleNum);
 
             Area = new MapArea(Border);
             Tiles = new Tile[TotalTiles];
 
             //Warn about potential overflow
             if (TotalTiles * 2000 > uint.MaxValue) //Average tile size was found to be around 1751.557701 bytes. Assume 2000, and assume 4 billion to be the uint max
-                log.LogWarning("This map size could cause an error due to it being too large");
+                Log.Warning("This map size could cause an error due to it being too large");
         }
 
         /// <summary>
@@ -160,7 +157,7 @@ namespace OsMapDownloader
         /// </summary>
         private async Task PrepareObjects(CancellationToken cancellationToken)
         {
-            log.LogDebug("Calculating triangles for map area");
+            Log.Debug("Calculating triangles for map area");
             try
             {
                 await Task.Run(Area.CalculateVerticesAndTriangles);
@@ -172,19 +169,19 @@ namespace OsMapDownloader
             cancellationToken.ThrowIfCancellationRequested();
             Progress.CurrentProgress!.Report(1);
 
-            log.LogDebug("Populate Tiles Array");
+            Log.Debug("Populate Tiles Array");
             Tiles = new Tile[TotalTiles];
 
-            log.LogDebug("This map is {width} tiles wide by {height} tiles high. {total} tiles in total", TilesWidth, TilesHeight, TotalTiles);
+            Log.Debug("This map is {width} tiles wide by {height} tiles high. {total} tiles in total", TilesWidth, TilesHeight, TotalTiles);
 
             await Task.Run(() =>
             {
                 for (uint i = 0; i < Tiles.Length; i++)
                 {
-                    log.LogTrace("Processing tile {index} / {total}", i + 1, TotalTiles);
+                    Log.Verbose("Processing tile {index} / {total}", i + 1, TotalTiles);
 
                     //Create new tile object at the correct top left corner location
-                    Tiles[i] = new Tile(log, i, new Osgb36Coordinate(
+                    Tiles[i] = new Tile(i, new Osgb36Coordinate(
                         TopLeft.Easting + ((i % TilesWidth) * MetersPerTile),
                         TopLeft.Northing - (Math.Floor((double)i / (double)TilesWidth) * MetersPerTile)
                     ), Scale, MetersPerTile);
@@ -199,7 +196,7 @@ namespace OsMapDownloader
         {
             try
             {
-                _geographicalReferencingCoefficients = await Task.Run(() => PolynomialCalculator.Calculate(log, Progress.CurrentProgress!, TopLeft, BottomRight, polynomialSampleSize, PixelsPerMeter, cancellationToken));
+                _geographicalReferencingCoefficients = await Task.Run(() => PolynomialCalculator.Calculate(Progress.CurrentProgress!, TopLeft, BottomRight, polynomialSampleSize, PixelsPerMeter, cancellationToken));
                 cancellationToken.ThrowIfCancellationRequested();
             }
             catch (OutOfMemoryException e)
@@ -213,9 +210,9 @@ namespace OsMapDownloader
         /// </summary>
         private async Task DownloadRequiredImages(string? token, CancellationToken cancellationToken = default(CancellationToken))
         {
-            log.LogDebug("Download Required Images");
+            Log.Debug("Download Required Images");
 
-            TileDownloader downloader = new TileDownloader(log, Progress.CurrentProgress!, Tiles, Area, Scale);
+            TileDownloader downloader = new TileDownloader(Progress.CurrentProgress!, Tiles, Area, Scale);
 
             try
             {
@@ -232,7 +229,7 @@ namespace OsMapDownloader
 
         private byte[] GenerateInterpolationMatrix(Color[] palette)
         {
-            log.LogDebug("Generating Interpolation Matrix");
+            Log.Debug("Generating Interpolation Matrix");
 
             InterpolationMatrixCreator creator = new InterpolationMatrixCreator(palette, Scale);
             return creator.GetInterpolationMatrix();
@@ -245,9 +242,9 @@ namespace OsMapDownloader
         /// <param name="shouldOverwrite">Whether, if the file already exists, it should be overwritten</param>
         private async Task ProcessTiles(string filePath, bool shouldOverwrite, bool disableHardwareAccel, CancellationToken cancellationToken = default(CancellationToken))
         {
-            log.LogDebug("Process Tiles");
+            Log.Debug("Process Tiles");
 
-            QctBuilder builder = new QctBuilder(log, Progress, _geographicalReferencingCoefficients, _palette, _interpolationMatrix, Metadata, TilesWidth, TilesHeight);
+            QctBuilder builder = new QctBuilder(Progress, _geographicalReferencingCoefficients, _palette, _interpolationMatrix, Metadata, TilesWidth, TilesHeight);
 
             await builder.Build(Tiles, Area, filePath, shouldOverwrite, disableHardwareAccel, cancellationToken);
         }

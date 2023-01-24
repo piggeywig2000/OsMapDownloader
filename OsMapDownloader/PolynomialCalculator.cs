@@ -4,9 +4,9 @@ using System.Linq;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Solvers;
 using MathNet.Numerics.LinearAlgebra.Double.Solvers;
-using Microsoft.Extensions.Logging;
 using OsMapDownloader.Coords;
 using OsMapDownloader.Qct;
+using Serilog;
 
 namespace OsMapDownloader
 {
@@ -15,9 +15,9 @@ namespace OsMapDownloader
         //https://en.wikipedia.org/wiki/Polynomial_regression
         //https://en.wikipedia.org/wiki/Chebyshev_nodes
 
-        public static QctGeographicalReferencingCoefficients Calculate(ILogger log, IProgress<double> progress, Osgb36Coordinate tl, Osgb36Coordinate br, int sampleSize, double pixelsPerMeter, CancellationToken cancellationToken = default(CancellationToken))
+        public static QctGeographicalReferencingCoefficients Calculate(IProgress<double> progress, Osgb36Coordinate tl, Osgb36Coordinate br, int sampleSize, double pixelsPerMeter, CancellationToken cancellationToken = default(CancellationToken))
         {
-            log.LogDebug("Calculating Geographical Referencing Polynomials, this will take a while");
+            Log.Debug("Calculating Geographical Referencing Polynomials, this will take a while");
 
             Osgb36Coordinate[] sampleCoords = GetSampleCoordinates(tl, br, sampleSize, cancellationToken);
             progress.Report(1);
@@ -26,18 +26,18 @@ namespace OsMapDownloader
 
             Vector<double> lonC = DoPolynomialRegression(convertedCoords.Select(coord => new SampleCoordinate(coord.Item2.X, coord.Item2.Y, coord.Item1.Longitude)), sampleSize, cancellationToken);
             progress.Report(3);
-            log.LogDebug("Lon Coefficients {lonC}", lonC);
+            Log.Debug("Lon Coefficients {lonC}", lonC);
             Vector<double> latC = DoPolynomialRegression(convertedCoords.Select(coord => new SampleCoordinate(coord.Item2.X, coord.Item2.Y, coord.Item1.Latitude)), sampleSize, cancellationToken);
             progress.Report(4);
-            log.LogDebug("Lat Coefficients {latC}", latC);
+            Log.Debug("Lat Coefficients {latC}", latC);
             Vector<double> xC = DoPolynomialRegression(convertedCoords.Select(coord => new SampleCoordinate(coord.Item1.Longitude, coord.Item1.Latitude, coord.Item2.X)), sampleSize, cancellationToken);
             progress.Report(5);
-            log.LogDebug("X Coefficients {xC}", xC);
+            Log.Debug("X Coefficients {xC}", xC);
             Vector<double> yC = DoPolynomialRegression(convertedCoords.Select(coord => new SampleCoordinate(coord.Item1.Longitude, coord.Item1.Latitude, coord.Item2.Y)), sampleSize, cancellationToken);
             progress.Report(6);
-            log.LogDebug("Y Coefficients {yC}", yC);
+            Log.Debug("Y Coefficients {yC}", yC);
 
-            log.LogDebug("Calculated Geographical Referencing Polynomials");
+            Log.Debug("Calculated Geographical Referencing Polynomials");
             
             return new QctGeographicalReferencingCoefficients(
                 xC[0], xC[2], xC[1], xC[5], xC[4], xC[3], xC[9], xC[8], xC[7], xC[6],

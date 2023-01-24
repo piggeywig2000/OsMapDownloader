@@ -5,9 +5,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
-using Microsoft.Extensions.Logging;
 using OsMapDownloader.Border;
 using OsMapDownloader.Progress;
+using Serilog;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing.Processors.Quantization;
@@ -16,7 +16,6 @@ namespace OsMapDownloader.Qct
 {
     public class QctBuilder
     {
-        private readonly ILogger log;
         private readonly ProgressTracker progress;
 
         /// <summary>
@@ -59,9 +58,8 @@ namespace OsMapDownloader.Qct
         /// <summary>
         /// Create a new QCT builder with empty values
         /// </summary>
-        public QctBuilder(ILogger logger, ProgressTracker progress, QctGeographicalReferencingCoefficients geographicalReferencingCoefficients, Color[] palette, byte[] interpolationMatrix, QctMetadata metadata, uint width, uint height)
+        public QctBuilder(ProgressTracker progress, QctGeographicalReferencingCoefficients geographicalReferencingCoefficients, Color[] palette, byte[] interpolationMatrix, QctMetadata metadata, uint width, uint height)
         {
-            log = logger;
             this.progress = progress;
             GeographicalReferencingCoefficients = geographicalReferencingCoefficients;
             Palette = palette;
@@ -106,14 +104,14 @@ namespace OsMapDownloader.Qct
             {
                 //Create in separate thread since OpenGL will do a bit of blocking
                 //If OpenGL messes up it might be because it's not on the main thread, but it hopefully won't since we don't use events
-                log.LogDebug("Creating OpenGL processing thread");
+                Log.Debug("Creating OpenGL processing thread");
                 await Task.Run(() =>
                 {
                     try
                     {
-                        log.LogTrace("Creating OpenGL window");
+                        Log.Verbose("Creating OpenGL window");
                         using OpenGLManager glManager = new OpenGLManager();
-                        log.LogTrace("Initialising OpenGL window");
+                        Log.Verbose("Initialising OpenGL window");
                         glManager.Init(area);
 
                         Task writeTilesTask = WriteTiles(fs, tiles, area, glManager, cancellationToken);
@@ -158,7 +156,7 @@ namespace OsMapDownloader.Qct
 
         private async Task WritePaletteAndInterpolationMatrix(FileStream fs, CancellationToken cancellationToken = default(CancellationToken))
         {
-            log.LogDebug("Writing palette");
+            Log.Debug("Writing palette");
             if (Palette.Length > 128)
                 throw new InvalidOperationException("The palette must be of length 128 or less");
             byte[] paletteBuffer = new byte[1024];
@@ -173,13 +171,13 @@ namespace OsMapDownloader.Qct
 
             if (InterpolationMatrix.Length != 16384)
                 throw new InvalidOperationException("The interpolation matrix must be of length 16384");
-            log.LogDebug("Writing interpolation matrix");
+            Log.Debug("Writing interpolation matrix");
             await fs.WriteAsync(InterpolationMatrix, 0, 16384, cancellationToken);
         }
 
         private async Task WriteTiles(FileStream fs, Tile[] tiles, MapArea area, OpenGLManager? glManager, CancellationToken cancellationToken = default(CancellationToken))
         {
-            log.LogDebug("Writing tiles");
+            Log.Debug("Writing tiles");
 
             int capacityPerBlock = Environment.ProcessorCount * 4;
             using IQuantizer<Rgba32> quantizer = new PaletteQuantizer(new ReadOnlyMemory<Color>(Palette), new QuantizerOptions() { Dither = null }).CreatePixelSpecificQuantizer<Rgba32>(new Configuration());
@@ -220,7 +218,7 @@ namespace OsMapDownloader.Qct
             uint totalBytesWritten = 0;
             ActionBlock<byte[]> writeBlock = new ActionBlock<byte[]>(async (data) =>
             {
-                log.LogDebug("Writing tile {tileId} / {total}", tilesWritten + 1, Width * Height);
+                Log.Debug("Writing tile {tileId} / {total}", tilesWritten + 1, Width * Height);
 
                 //The pointer should point to the end of the file (the offset of index pointers plus size of index pointers plus bytes written)
                 uint pointerLocation = 0x45A0 + Width * Height * 4 + totalBytesWritten;
@@ -251,7 +249,7 @@ namespace OsMapDownloader.Qct
                 {
                     await Task.WhenAny(writeBlock.Completion, Task.Delay(1000));
 
-                    log.LogTrace("Load: {load}    LoadOutput: {loadOutput}    Process: {process}    ProcessOutput: {processOutput}    Compress: {compress}    CompressOutput: {compressOutput}    Write: {write}", loadBlock.InputCount, loadBlock.OutputCount, processBlock.InputCount, processBlock.OutputCount, compressBlock.InputCount, compressBlock.OutputCount, writeBlock.InputCount);
+                    Log.Verbose("Load: {load}    LoadOutput: {loadOutput}    Process: {process}    ProcessOutput: {processOutput}    Compress: {compress}    CompressOutput: {compressOutput}    Write: {write}", loadBlock.InputCount, loadBlock.OutputCount, processBlock.InputCount, processBlock.OutputCount, compressBlock.InputCount, compressBlock.OutputCount, writeBlock.InputCount);
                     progress.CurrentProgress!.Report(tilesWritten);
                 } while (!writeBlock.Completion.IsCompleted);
             });
@@ -270,7 +268,7 @@ namespace OsMapDownloader.Qct
 
         private async Task WriteMetadata(FileStream fs, CancellationToken cancellationToken = default(CancellationToken))
         {
-            log.LogDebug("Writing metadata");
+            Log.Debug("Writing metadata");
 
             //Firstly figure out where new references will go
             uint newPointerLocation = (uint)fs.Length;
@@ -396,7 +394,7 @@ namespace OsMapDownloader.Qct
 
         private async Task WriteGeographicalReferencingPolynomials(FileStream fs, CancellationToken cancellationToken = default(CancellationToken))
         {
-            log.LogDebug("Writing geographical referencing coefficients");
+            Log.Debug("Writing geographical referencing coefficients");
             await fs.WriteDoubleMetadata(0x060, GeographicalReferencingCoefficients.Eas, cancellationToken);
             await fs.WriteDoubleMetadata(0x068, GeographicalReferencingCoefficients.EasY, cancellationToken);
             await fs.WriteDoubleMetadata(0x070, GeographicalReferencingCoefficients.EasX, cancellationToken);
