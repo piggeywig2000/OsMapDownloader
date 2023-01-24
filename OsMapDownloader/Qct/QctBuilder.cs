@@ -122,7 +122,7 @@ namespace OsMapDownloader.Qct
                     Log.Verbose("Processing tile {index} / {total}", i + 1, totalTiles);
 
                     //Create new tile object at the correct top left corner location
-                    tiles[i] = new Tile(i, new Osgb36Coordinate(
+                    tiles[i] = new Tile(new Osgb36Coordinate(
                         map.TopLeft.Easting + ((i % tilesWidth) * metersPerTile),
                         map.TopLeft.Northing - (Math.Floor((double)i / (double)tilesWidth) * metersPerTile)
                     ), map.Scale, metersPerTile);

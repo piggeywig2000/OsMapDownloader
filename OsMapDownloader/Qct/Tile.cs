@@ -21,8 +21,6 @@ namespace OsMapDownloader.Qct
 {
     public class Tile
     {
-        public uint Id { get; }
-
         public Osgb36Coordinate TopLeft { get; }
         public Osgb36Coordinate BottomRight { get; }
         public Wgs84Coordinate LatlongTopLeft { get; }
@@ -43,9 +41,8 @@ namespace OsMapDownloader.Qct
         /// Create a new Tile with the specified top left location.
         /// </summary>
         /// <param name="topLeftCorner">The location of the top left corner</param>
-        public Tile(uint id, Osgb36Coordinate topLeftCorner, Scale mapScale, double metersPerTile)
+        public Tile(Osgb36Coordinate topLeftCorner, Scale mapScale, double metersPerTile)
         {
-            Id = id;
             TopLeft = topLeftCorner;
             BottomRight = new Osgb36Coordinate(topLeftCorner.Easting + metersPerTile, topLeftCorner.Northing - metersPerTile);
             LatlongTopLeft = TopLeft.ToWgs84Accurate();
