@@ -32,7 +32,7 @@ namespace OsMapDownloader.Qct
         /// <param name="token">The token to use when downloading. Can be null to fetch one automatically</param>
         /// <param name="keepDownloadedTiles">Enable to keep instead of deleting the individual tile images</param>
         /// <param name="disableHardwareAccel">Enable to process tiles on the CPU instead of the GPU</param>
-        public static async Task Build(Map map, ProgressTracker progress, string filePath, bool shouldOverwrite, int polynomialSampleSize, string? token, bool keepDownloadedTiles, bool disableHardwareAccel, CancellationToken cancellationToken = default(CancellationToken))
+        public static async Task Build(Map map, ProgressTracker progress, QctMetadata metadata, string filePath, bool shouldOverwrite, int polynomialSampleSize, string? token, bool keepDownloadedTiles, bool disableHardwareAccel, CancellationToken cancellationToken = default(CancellationToken))
         {
             //The amount of tiles required to make a horizontal/vertical line in the bounding box
             //1:25000 uses 400px for 1k blue squares. So 1 tile = 64px = 160m
@@ -72,7 +72,7 @@ namespace OsMapDownloader.Qct
 
                 //Write the QCT file while processing the tiles
                 Log.Debug("Process Tiles");
-                QctWriter builder = new QctWriter(progress, coefficients, palette, interpolationMatrix, map.Metadata, tilesWidth, tilesHeight);
+                QctWriter builder = new QctWriter(progress, coefficients, palette, interpolationMatrix, metadata, tilesWidth, tilesHeight);
                 await builder.Build(tiles, map.Area, filePath, shouldOverwrite, disableHardwareAccel, cancellationToken);
             }
             finally

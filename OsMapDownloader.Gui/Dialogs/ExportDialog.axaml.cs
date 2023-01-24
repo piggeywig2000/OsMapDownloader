@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using OsMapDownloader.Coords;
 using OsMapDownloader.Gui.Areas;
 using OsMapDownloader.Gui.Config;
 using OsMapDownloader.Gui.VIewModels;
@@ -249,11 +250,13 @@ namespace OsMapDownloader.Gui.Dialogs
                 .CreateLogger();
             try
             {
-                Map map = new Map(areaToExport.Points.ToArray(), Scale, metadata.UnderlyingMetadata);
+                Wgs84Coordinate[] border = areaToExport.Points.ToArray();
+                Map map = new Map(border, Scale);
+                metadata.UnderlyingMetadata.MapOutline = border;
                 ProgressTracker progress = QctBuilder.CreateProgress();
                 progress.ProgressChanged += (s, e) => UpdateProgress(progress);
                 UpdateProgress(progress);
-                await QctBuilder.Build(map, progress, FileLocation, true, settings.PolynomialSampleSize, settings.Token, settings.KeepTiles, !settings.UseHardwareAcceleration, exportCancelSource.Token);
+                await QctBuilder.Build(map, progress, metadata.UnderlyingMetadata, FileLocation, true, settings.PolynomialSampleSize, settings.Token, settings.KeepTiles, !settings.UseHardwareAcceleration, exportCancelSource.Token);
             }
             catch (Exception e)
             {

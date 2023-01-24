@@ -114,9 +114,9 @@ The map is at 1:50000 scale (instead of the default 1:25000).");
             //Catch overflow exceptions
             try
             {
-                Map map = new Map(borderPoints,
-                options.Scale,
-                new QctMetadata()
+                Map map = new Map(borderPoints, options.Scale);
+                ProgressTracker progress = QctBuilder.CreateProgress();
+                QctMetadata metadata = new QctMetadata()
                 {
                     FileType = QctType.QuickChartMap,
                     LongTitle = options.LongName,
@@ -137,12 +137,12 @@ The map is at 1:50000 scale (instead of the default 1:25000).");
                     WriteOriginalCreationTime = false,
                     MapType = options.MapType,
                     DatumShiftNorth = 0.0,
-                    DatumShiftEast = 0.0
-                });
-                ProgressTracker progress = QctBuilder.CreateProgress();
+                    DatumShiftEast = 0.0,
+                    MapOutline = borderPoints
+                };
                 progress.ProgressChanged += (s, e) => LogProgressChange(progress);
                 LogProgressChange(progress);
-                await QctBuilder.Build(map, progress, options.DestinationPath, options.Overwrite, options.PolynomialSampleSize, options.Token, options.KeepTiles, options.DisableHardwareAccel);
+                await QctBuilder.Build(map, progress, metadata, options.DestinationPath, options.Overwrite, options.PolynomialSampleSize, options.Token, options.KeepTiles, options.DisableHardwareAccel);
             }
             catch (MapGenerationException e)
             {

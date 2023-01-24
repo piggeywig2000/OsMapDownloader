@@ -17,14 +17,11 @@ namespace OsMapDownloader
         public Osgb36Coordinate BottomRight { get; }
         public Osgb36Coordinate[] Border { get; }
         public MapArea Area { get; }
-        public QctMetadata Metadata { get; }
         public Scale Scale { get; }
 
-        public Map(Wgs84Coordinate[] borderPoints, Scale scale, QctMetadata metadata)
+        public Map(Wgs84Coordinate[] borderPoints, Scale scale)
         {
             Scale = scale;
-            Metadata = metadata;
-            Metadata.MapOutline = borderPoints;
 
             if (borderPoints.Length < 3)
             {
