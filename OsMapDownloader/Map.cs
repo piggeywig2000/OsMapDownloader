@@ -50,7 +50,16 @@ namespace OsMapDownloader
             Log.Debug("This map has top left corner at {topLeft} and bottom right corner at {bottomRight} when converted to Eastings/Northings", TopLeft, BottomRight);
             Log.Debug("This map has a scale of 1:{scale}", (uint)Scale);
 
+            Log.Debug("Calculating triangles for map area");
             Area = new MapArea(Border);
+            try
+            {
+                Area.CalculateVerticesAndTriangles();
+            }
+            catch (TriangleGenerationException e)
+            {
+                throw new MapGenerationException(MapGenerationExceptionReason.BorderNonSimple, e);
+            }
         }
     }
 }

@@ -16,7 +16,7 @@ namespace OsMapDownloader.Qct
     public static class QctBuilder
     {
         public static ProgressTracker CreateProgress() => new ProgressTracker(
-                (new ProgressPhases("Getting set up", new ProgressPhase("Calculating map area", 1), new ProgressPhase("Creating tiles", 2)), 1),
+                (new ProgressPhases("Getting set up", new ProgressPhase("Creating tiles", 1)), 1),
                 (new ProgressPhases("Calculating geographical referencing polynomial coefficients", new ProgressPhase("Generating sample coordinates", 0.75), new ProgressPhase("Converting sample coordinates", 20), new ProgressPhase("Calculating coefficient 1", 3), new ProgressPhase("Calculating coefficient 2", 3), new ProgressPhase("Calculating coefficient 3", 3), new ProgressPhase("Calculating coefficient 4", 3)), 15),
                 (new ProgressCollection("Downloading images", "image"), 30),
                 (new ProgressCollection("Processing tiles", "tile"), 80),
@@ -97,18 +97,6 @@ namespace OsMapDownloader.Qct
         /// </summary>
         private static async Task<Tile[]> PrepareObjects(Map map, IProgress<double> progress, uint tilesWidth, uint tilesHeight, double metersPerTile, CancellationToken cancellationToken)
         {
-            Log.Debug("Calculating triangles for map area");
-            try
-            {
-                await Task.Run(map.Area.CalculateVerticesAndTriangles);
-            }
-            catch (TriangleGenerationException e)
-            {
-                throw new MapGenerationException(MapGenerationExceptionReason.BorderNonSimple, e);
-            }
-            cancellationToken.ThrowIfCancellationRequested();
-            progress.Report(1);
-
             Log.Debug("Populate Tiles Array");
             uint totalTiles = tilesWidth * tilesHeight;
             Tile[] tiles = new Tile[totalTiles];
@@ -130,7 +118,7 @@ namespace OsMapDownloader.Qct
                 }
             });
 
-            progress.Report(2);
+            progress.Report(1);
             return tiles;
         }
 
