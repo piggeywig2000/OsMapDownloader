@@ -19,7 +19,7 @@ namespace OsMapDownloader.Qct
         private readonly ProgressTracker progress;
 
         /// <summary>
-        /// The path that this builder writes to
+        /// The path that this writer writes to
         /// </summary>
         public string QCTFilePath { get; private set; } = "";
 
@@ -74,7 +74,7 @@ namespace OsMapDownloader.Qct
         /// <param name="newQctFilePath">The path to write the new file to</param>
         /// <param name="shouldOverwrite">Whether, if the file already exists, it should be overwritten</param>
         /// <returns>A Task representing the operation</returns>
-        public async Task Build(Tile[] tiles, MapArea area, string newQctFilePath, bool shouldOverwrite, bool disableHardwareAccel, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task Write(Tile[] tiles, MapArea area, string newQctFilePath, bool shouldOverwrite, bool disableHardwareAccel, CancellationToken cancellationToken = default(CancellationToken))
         {
             FileStream fs;
             try

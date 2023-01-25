@@ -18,8 +18,8 @@ namespace OsMapDownloader.Qct
         public static ProgressTracker CreateProgress() => new ProgressTracker(
                 (new ProgressPhases("Getting set up", new ProgressPhase("Creating tiles", 1)), 1),
                 (new ProgressPhases("Calculating geographical referencing polynomial coefficients", new ProgressPhase("Generating sample coordinates", 0.75), new ProgressPhase("Converting sample coordinates", 20), new ProgressPhase("Calculating coefficient 1", 3), new ProgressPhase("Calculating coefficient 2", 3), new ProgressPhase("Calculating coefficient 3", 3), new ProgressPhase("Calculating coefficient 4", 3)), 15),
-                (new ProgressCollection("Downloading images", "image"), 30),
-                (new ProgressCollection("Processing tiles", "tile"), 80),
+                (new ProgressCollection("Downloading images", "images"), 30),
+                (new ProgressCollection("Processing tiles", "tiles"), 80),
                 (new ProgressPhases("Finishing up", new ProgressPhase("Writing metadata", 1), new ProgressPhase("Deleting images", 3)), 2));
 
         /// <summary>
@@ -34,6 +34,11 @@ namespace OsMapDownloader.Qct
         /// <param name="disableHardwareAccel">Enable to process tiles on the CPU instead of the GPU</param>
         public static async Task Build(Map map, ProgressTracker progress, QctMetadata metadata, string filePath, bool shouldOverwrite, int polynomialSampleSize, string? token, bool keepDownloadedTiles, bool disableHardwareAccel, CancellationToken cancellationToken = default(CancellationToken))
         {
+            Log.Information("Exporting QCT file");
+            progress.CurrentProgress!.Report(0);
+
+            filePath = Path.ChangeExtension(filePath, "qct");
+
             //The amount of tiles required to make a horizontal/vertical line in the bounding box
             //1:25000 uses 400px for 1k blue squares. So 1 tile = 64px = 160m
             //160 / 25000 = 0.0064
@@ -72,8 +77,8 @@ namespace OsMapDownloader.Qct
 
                 //Write the QCT file while processing the tiles
                 Log.Debug("Process Tiles");
-                QctWriter builder = new QctWriter(progress, coefficients, palette, interpolationMatrix, metadata, tilesWidth, tilesHeight);
-                await builder.Build(tiles, map.Area, filePath, shouldOverwrite, disableHardwareAccel, cancellationToken);
+                QctWriter writer = new QctWriter(progress, coefficients, palette, interpolationMatrix, metadata, tilesWidth, tilesHeight);
+                await writer.Write(tiles, map.Area, filePath, shouldOverwrite, disableHardwareAccel, cancellationToken);
             }
             finally
             {

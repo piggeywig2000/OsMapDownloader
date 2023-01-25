@@ -9,6 +9,7 @@ using OsMapDownloader.Cli.CommandOptions;
 using OsMapDownloader.Coords;
 using OsMapDownloader.Progress;
 using OsMapDownloader.Qct;
+using OsMapDownloader.Qed;
 using Serilog;
 using Serilog.Events;
 
@@ -18,7 +19,12 @@ namespace OsMapDownloader
     {
         static Task<int> Main(string[] args)
         {
-            ParserResult<object> parseResult = new Parser(x => x.HelpWriter = null).ParseArguments<BoxOptions, PointsOptions>(args);
+            ParserResult<object> parseResult = new Parser(x =>
+            {
+                x.HelpWriter = null;
+                x.CaseInsensitiveEnumValues = true;
+            }).ParseArguments<BoxOptions, PointsOptions>(args);
+
             return parseResult.MapResult(
                 (BoxOptions opts) => Run(args, opts), //If it's successful, call Run
                 (PointsOptions opts) => Run(args, opts),
@@ -115,34 +121,47 @@ The map is at 1:50000 scale (instead of the default 1:25000).");
             try
             {
                 Map map = new Map(borderPoints, options.Scale);
-                ProgressTracker progress = QctBuilder.CreateProgress();
-                QctMetadata metadata = new QctMetadata()
+                ProgressTracker progress;
+
+                //Generate QCT
+                if (options.Format.HasFlag(ExportFormat.QCT))
                 {
-                    FileType = QctType.QuickChartMap,
-                    LongTitle = options.LongName,
-                    Name = options.Name,
-                    Identifier = options.Identifier,
-                    Edition = options.Edition,
-                    Revision = options.Revision,
-                    Keywords = options.Keywords,
-                    Copyright = options.Copyright,
-                    Scale = options.MetadataScale,
-                    Datum = options.Datum,
-                    Depths = options.Depths,
-                    Heights = options.Heights,
-                    Projection = options.Projection,
-                    Flags = 0,
-                    WriteOriginalFileName = false,
-                    WriteOriginalFileSize = false,
-                    WriteOriginalCreationTime = false,
-                    MapType = options.MapType,
-                    DatumShiftNorth = 0.0,
-                    DatumShiftEast = 0.0,
-                    MapOutline = borderPoints
-                };
-                progress.ProgressChanged += (s, e) => LogProgressChange(progress);
-                LogProgressChange(progress);
-                await QctBuilder.Build(map, progress, metadata, options.DestinationPath, options.Overwrite, options.PolynomialSampleSize, options.Token, options.KeepTiles, options.DisableHardwareAccel);
+                    progress = QctBuilder.CreateProgress();
+                    progress.ProgressChanged += (s, e) => LogProgressChange(progress);
+                    QctMetadata metadata = new QctMetadata()
+                    {
+                        FileType = QctType.QuickChartMap,
+                        LongTitle = options.LongName,
+                        Name = options.Name,
+                        Identifier = options.Identifier,
+                        Edition = options.Edition,
+                        Revision = options.Revision,
+                        Keywords = options.Keywords,
+                        Copyright = options.Copyright,
+                        Scale = options.MetadataScale,
+                        Datum = options.Datum,
+                        Depths = options.Depths,
+                        Heights = options.Heights,
+                        Projection = options.Projection,
+                        Flags = 0,
+                        WriteOriginalFileName = false,
+                        WriteOriginalFileSize = false,
+                        WriteOriginalCreationTime = false,
+                        MapType = options.MapType,
+                        DatumShiftNorth = 0.0,
+                        DatumShiftEast = 0.0,
+                        MapOutline = borderPoints
+                    };
+                    await QctBuilder.Build(map, progress, metadata, options.DestinationPath, options.Overwrite, options.PolynomialSampleSize, options.Token, options.KeepTiles, options.DisableHardwareAccel);
+                }
+
+                //Generate QED
+                if (options.Format.HasFlag(ExportFormat.QED))
+                {
+                    progress = QedBuilder.CreateProgress();
+                    progress.ProgressChanged += (s, e) => LogProgressChange(progress);
+                    await QedBuilder.Build(map, progress, options.DestinationPath, options.Overwrite, options.PolynomialSampleSize);
+                }
             }
             catch (MapGenerationException e)
             {

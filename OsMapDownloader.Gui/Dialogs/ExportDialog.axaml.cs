@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +15,7 @@ using OsMapDownloader.Gui.VIewModels;
 using OsMapDownloader.Gui.Views;
 using OsMapDownloader.Progress;
 using OsMapDownloader.Qct;
+using OsMapDownloader.Qed;
 using Serilog;
 
 namespace OsMapDownloader.Gui.Dialogs
@@ -116,6 +118,20 @@ namespace OsMapDownloader.Gui.Dialogs
             }
         }
 
+        private double _formatIndex = 0;
+        public double FormatIndex
+        {
+            get => _formatIndex;
+            set
+            {
+                if (value != _formatIndex)
+                {
+                    _formatIndex = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
         private double _overallProgress = 0;
         public double OverallProgress
         {
@@ -139,6 +155,20 @@ namespace OsMapDownloader.Gui.Dialogs
                 if (value != _stageProgress)
                 {
                     _stageProgress = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        private string _overallProgressName = "";
+        public string OverallProgressName
+        {
+            get => _overallProgressName;
+            set
+            {
+                if (value != _overallProgressName)
+                {
+                    _overallProgressName = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -203,10 +233,8 @@ namespace OsMapDownloader.Gui.Dialogs
         {
             SaveFileDialog dialog = new SaveFileDialog()
             {
-                DefaultExtension = ".qct",
                 InitialFileName = areaToExport.Name,
                 Title = "Browse for QCT save location",
-                Filters = new List<FileDialogFilter>() { new FileDialogFilter() { Name = "Quick Chart file", Extensions = new List<string>() { "qct" } } }
             };
             string? filePath = await dialog.ShowAsync(this);
             if (string.IsNullOrWhiteSpace(filePath)) return;
@@ -253,10 +281,27 @@ namespace OsMapDownloader.Gui.Dialogs
                 Wgs84Coordinate[] border = areaToExport.Points.ToArray();
                 Map map = new Map(border, Scale);
                 metadata.UnderlyingMetadata.MapOutline = border;
-                ProgressTracker progress = QctBuilder.CreateProgress();
-                progress.ProgressChanged += (s, e) => UpdateProgress(progress);
-                UpdateProgress(progress);
-                await QctBuilder.Build(map, progress, metadata.UnderlyingMetadata, FileLocation, true, settings.PolynomialSampleSize, settings.Token, settings.KeepTiles, !settings.UseHardwareAcceleration, exportCancelSource.Token);
+
+                if (FormatIndex == 0 || FormatIndex == 1)
+                {
+                    OverallProgressName = "Exporting .QCT map image file";
+                    ProgressTracker progress = QctBuilder.CreateProgress();
+                    progress.ProgressChanged += (s, e) => UpdateProgress(progress);
+                    await QctBuilder.Build(map, progress, metadata.UnderlyingMetadata, FileLocation, true, settings.PolynomialSampleSize, settings.Token, settings.KeepTiles, !settings.UseHardwareAcceleration, exportCancelSource.Token);
+                }
+
+                if (FormatIndex == 0 || FormatIndex == 2)
+                {
+                    OverallProgressName = "Exporting .QED map elevation file";
+                    ProgressTracker progress = QedBuilder.CreateProgress();
+                    progress.ProgressChanged += (s, e) => UpdateProgress(progress);
+                    await QedBuilder.Build(map, progress, FileLocation, true, settings.PolynomialSampleSize, exportCancelSource.Token);
+                }
+
+                OverallProgressName = "Completed";
+                IsExporting = false;
+                ExportCompleted = true;
+                NotifyPropertyChanged(nameof(CancelButtonContent));
             }
             catch (Exception e)
             {
@@ -273,6 +318,7 @@ namespace OsMapDownloader.Gui.Dialogs
                         MapGenerationExceptionReason.DownloadError => "An error occurred while downloading the images. Ordinance Survey have probably changed something on their website that broke this program.\n\nIt's possible that this could be fixed by providing your own download token in the settings.",
                         MapGenerationExceptionReason.OpenGLError => "An OpenGL error occurred while processing the tiles.\n\nCheck that your video drivers are up to date. If they are up to date and this error still occurs, try disabling hardware acceleration in settings.",
                         MapGenerationExceptionReason.IOError => "The file could not be written to.\n\nCheck that the save location provided is a valid folder. If the file is being overwritten, make sure that the file is not open in another program.",
+                        MapGenerationExceptionReason.TerrainError => "An error occurred when downloading or using the terrain data file.\n\nTry downloading the OS Terrain 50 file manually, and saving it as terrain50.zip in the same folder as this program.",
                         _ => throw new ArgumentException("Invalid value for map generation exception reason")
                     };
                 }
@@ -291,13 +337,6 @@ namespace OsMapDownloader.Gui.Dialogs
             StageProgress = progress.IsCompleted ? 1 : progress.CurrentProgressItem!.Value;
             ProgressStageName = progress.IsCompleted ? "Completed" : progress.CurrentProgressItem!.Name;
             ProgressStageStatus = progress.IsCompleted ? "" : progress.CurrentProgressItem!.Status;
-
-            if (progress.IsCompleted)
-            {
-                IsExporting = false;
-                ExportCompleted = true;
-                NotifyPropertyChanged(nameof(CancelButtonContent));
-            }
         }
     }
 }

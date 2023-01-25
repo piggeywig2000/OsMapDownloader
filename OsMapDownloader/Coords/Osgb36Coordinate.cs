@@ -44,5 +44,7 @@ namespace OsMapDownloader.Coords
             }
             return new Wgs84Coordinate(latLong.Longitude, latLong.Latitude);
         }
+
+        public string GetBNGSquare() => Osgb36.GetBngSquare(Easting, Northing);
     }
 }

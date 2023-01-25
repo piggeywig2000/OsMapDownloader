@@ -16,8 +16,8 @@ namespace OsMapDownloader.Progress
             this.itemName = itemName;
         }
 
-        private uint _totalItems = 1;
-        public uint TotalItems
+        private double _totalItems = 1;
+        public double TotalItems
         {
             get => _totalItems;
             set
@@ -28,8 +28,8 @@ namespace OsMapDownloader.Progress
             }
         }
 
-        private uint _completedItems = 0;
-        public uint CompletedItems
+        private double _completedItems = 0;
+        public double CompletedItems
         {
             get => _completedItems;
             private set
@@ -59,19 +59,19 @@ namespace OsMapDownloader.Progress
 
         public override string Status
         {
-            get => $"{CompletedItems} {itemName}s out of {TotalItems}    {ItemsPerSecond:0.0} {itemName}s/second    Time Remaining: {(TimeRemaining == null ? "Calculating..." : TimeSpan.FromSeconds((uint)TimeRemaining.Value.TotalSeconds))}";
+            get => $"{CompletedItems} {itemName} out of {TotalItems}    {ItemsPerSecond:0.0} {itemName}/second    Time Remaining: {(TimeRemaining == null ? "Calculating..." : TimeSpan.FromSeconds((uint)TimeRemaining.Value.TotalSeconds))}";
         }
 
         protected override void OnReport(double value)
         {
-            CompletedItems = (uint)value;
+            CompletedItems = value;
             ReportCompletion();
         }
 
         private void ReportCompletion()
         {
             AddToCompletionHistory();
-            double completion = (double)CompletedItems / (double)TotalItems;
+            double completion = CompletedItems / TotalItems;
             base.OnReport(completion);
         }
 

@@ -29,17 +29,33 @@
 				<Button DockPanel.Dock="Right" Command="{Binding BrowseButtonPressed}" Margin="10,0,0,0">Browse</Button>
 				<TextBox Text="{Binding FileLocation}" AcceptsReturn="False" TextWrapping="NoWrap"></TextBox>
 			</DockPanel>
-			<DockPanel LastChildFill="True">
-				<TextBlock DockPanel.Dock="Left"
-						   VerticalAlignment="Center" TextAlignment="Right"
-						   Width="85" Margin="0,0,10,0">Scale:</TextBlock>
-				<ComboBox DockPanel.Dock="Right" HorizontalAlignment="Stretch" SelectedIndex="{Binding ScaleIndex}">
-					<ComboBoxItem>Explorer (1:25,000)</ComboBoxItem>
-					<ComboBoxItem>Landranger (1:50,000)</ComboBoxItem>
-					<ComboBoxItem>Road (1:250,000)</ComboBoxItem>
-					<ComboBoxItem>MiniScale (1:1,000,000)</ComboBoxItem>
-				</ComboBox>
-			</DockPanel>
+			<Grid>
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="*"></ColumnDefinition>
+					<ColumnDefinition Width="*"></ColumnDefinition>
+				</Grid.ColumnDefinitions>
+				<DockPanel Grid.Row="0" Grid.Column="0" LastChildFill="True">
+					<TextBlock DockPanel.Dock="Left"
+							   VerticalAlignment="Center" TextAlignment="Right"
+							   Width="85" Margin="0,0,10,0">Scale:</TextBlock>
+					<ComboBox DockPanel.Dock="Right" HorizontalAlignment="Stretch" SelectedIndex="{Binding ScaleIndex}">
+						<ComboBoxItem>Explorer (1:25,000)</ComboBoxItem>
+						<ComboBoxItem>Landranger (1:50,000)</ComboBoxItem>
+						<ComboBoxItem>Road (1:250,000)</ComboBoxItem>
+						<ComboBoxItem>MiniScale (1:1,000,000)</ComboBoxItem>
+					</ComboBox>
+				</DockPanel>
+				<DockPanel Grid.Row="0" Grid.Column="1" LastChildFill="True">
+					<TextBlock DockPanel.Dock="Left"
+							   VerticalAlignment="Center" TextAlignment="Right"
+							   Width="85" Margin="0,0,10,0">Format:</TextBlock>
+					<ComboBox DockPanel.Dock="Right" HorizontalAlignment="Stretch" SelectedIndex="{Binding FormatIndex}">
+						<ComboBoxItem>All files</ComboBoxItem>
+						<ComboBoxItem>Image data file (.QCT) only</ComboBoxItem>
+						<ComboBoxItem>Elevation data file (.QED) only</ComboBoxItem>
+					</ComboBox>
+				</DockPanel>
+			</Grid>
 		</StackPanel>
 		<Panel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
 			   IsVisible="{Binding Path=Page, Converter={converters:NumericComparisonConverter CompareTo=1, Comparison=EqualTo}}">
@@ -57,8 +73,7 @@
 			</StackPanel.Styles>
 			<HeaderedContentControl Header="Overall Progress" Background="DarkGray" Padding="20">
 				<StackPanel Spacing="10">
-					<TextBlock IsVisible="{Binding Path=OverallProgress, Converter={converters:NumericComparisonConverter CompareTo=1, Comparison=LessThan}}">Exporting Map</TextBlock>
-					<TextBlock IsVisible="{Binding Path=OverallProgress, Converter={converters:NumericComparisonConverter CompareTo=1, Comparison=EqualTo}}">Completed</TextBlock>
+					<TextBlock Text="{Binding OverallProgressName}"></TextBlock>
 					<ProgressBar Value="{Binding OverallProgress}"></ProgressBar>
 				</StackPanel>
 			</HeaderedContentControl>

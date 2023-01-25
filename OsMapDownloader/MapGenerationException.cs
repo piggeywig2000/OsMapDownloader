@@ -13,7 +13,8 @@ namespace OsMapDownloader
         PolynomialCalculationOutOfMemory,
         DownloadError,
         OpenGLError,
-        IOError
+        IOError,
+        TerrainError
     }
 
     public class MapGenerationException : Exception
@@ -28,6 +29,7 @@ namespace OsMapDownloader
             MapGenerationExceptionReason.DownloadError => "An error occurred while downloading the images. Ordinance Survey have probably changed something on their website that broke this program. It's possible that this could be fixed by providing your own token.",
             MapGenerationExceptionReason.OpenGLError => "An OpenGL error occurred while processing the tiles. Check that your video drivers are up to date, or try disabling hardware acceleration.",
             MapGenerationExceptionReason.IOError => "The file could not be written to. Check the the file path provided is valid, and that the file is not already open in another program.",
+            MapGenerationExceptionReason.TerrainError => "An error occurred when downloading or using the terrain data file. Try downloading the OS Terrain 50 file manually, and saving it as terrain50.zip.",
             _ => throw new ArgumentException("Invalid value for reason")
         };
 

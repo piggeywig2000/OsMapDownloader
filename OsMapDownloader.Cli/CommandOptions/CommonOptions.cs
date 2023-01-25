@@ -27,6 +27,9 @@ namespace OsMapDownloader.Cli.CommandOptions
         [Option('o', "overwrite", Default = false, HelpText = "If the file exists, overwrite it")]
         public bool Overwrite { get; set; }
 
+        [Option('f', "format", Default = ExportFormat.All, HelpText = "The file formats to export. Either QCT, QED, or a combination using commas. Set to All for all of them.")]
+        public ExportFormat Format { get; set; }
+
         private string? _stringScale;
         [Option("scale", Default = "1:25000", HelpText = "The scale of the map to download. Either 1:25000, 1:50000, 1:250000, or 1:1000000")]
         public string? StringScale
@@ -107,5 +110,14 @@ namespace OsMapDownloader.Cli.CommandOptions
             get => string.IsNullOrEmpty(_mapType) ? ((int)Scale <= 50000 ? "Land" : "Road") : _mapType;
             set => _mapType = value;
         }
+    }
+
+    [Flags]
+    public enum ExportFormat
+    {
+        None = 0,
+        QCT = 1,
+        QED = 2,
+        All = ~0
     }
 }
